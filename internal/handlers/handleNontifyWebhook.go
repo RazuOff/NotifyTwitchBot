@@ -3,13 +3,16 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
+	"github.com/RazuOff/NotifyTwitchBot/internal/telegram"
+	"github.com/RazuOff/NotifyTwitchBot/package/models"
+	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
 	"github.com/gin-gonic/gin"
 )
 
 func HandleNotifyWebhook(c *gin.Context) {
-
 	// Считываем тело запроса
 	body, err := c.GetRawData()
 	if err != nil {
@@ -18,22 +21,41 @@ func HandleNotifyWebhook(c *gin.Context) {
 	}
 
 	// Парсим JSON
-	var data map[string]interface{}
+	var data map[string]json.RawMessage
 	if err := json.Unmarshal(body, &data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
 		return
 	}
 
-	// Проверяем, является ли это challenge-запросом
-	if challenge, ok := data["challenge"]; ok {
-		c.String(http.StatusOK, challenge.(string))
+	var challange string
+	err = json.Unmarshal([]byte(data["challenge"]), &challange)
+	if err == nil {
+		fmt.Println("challange sucsessfull take reqest " + challange)
+		c.Header("Content-Type", "text/plain")
+		c.String(http.StatusOK, challange)
 		return
 	}
 
-	// Обрабатываем событие (например, начало стрима)
-	fmt.Println("Received webhook event:", string(body))
+	var event models.Event
+	err = json.Unmarshal([]byte(data["event"]), &event)
+	if err != nil {
+		fmt.Println("Error decoding Event:", err)
+		return
+	}
+	log.Println("Received webhook event:", event)
 
-	// Возвращаем успешный ответ
+	streamInfo, err := twitch.TwitchAPI.GetStreamInfo(event.BroadcasterUserID)
+	if err != nil {
+		log.Print(err)
+		c.JSON(http.StatusNotFound, gin.H{"status": err})
+		return
+	}
+
+	log.Println("Received stream info:", streamInfo)
+
+	if err := telegram.SendMessageToAll(streamInfo.BroadcasterName + " Start stream"); err != nil {
+		log.Print("Message send error")
+	}
+
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-
 }

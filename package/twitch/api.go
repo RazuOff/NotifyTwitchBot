@@ -13,27 +13,39 @@ import (
 	"github.com/RazuOff/NotifyTwitchBot/package/models"
 )
 
-type TwitchAPI struct {
-	clientId string
-	appToken string
+type twitchAPI struct {
+	clientId  string
+	appToken  string
+	serverURL string
+	OAuth     models.OAuthResponse
 }
 
-func Init() *TwitchAPI {
+var TwitchAPI *twitchAPI
+
+func Init() {
 	clientId, exists := os.LookupEnv("CLIENT_ID")
 	if !exists {
 		log.Fatal("CLIENT_ID env parametr not found!")
-		return nil
 	}
 	appToken, exists := os.LookupEnv("APP_TOKEN")
 	if !exists {
 		log.Fatal("APP_TOKEN env parametr not found!")
-		return nil
 	}
+	server_url, exists := os.LookupEnv("SERVER_URL")
+	if !exists {
+		log.Fatal("SERVER_URL env parametr not found!")
+	}
+	twitchAPI := &twitchAPI{clientId: clientId, appToken: appToken, serverURL: server_url}
 
-	return &TwitchAPI{clientId: clientId, appToken: appToken}
+	OAuth, err := twitchAPI.getOAuthToken()
+	if err != nil {
+		log.Fatal(err)
+	}
+	twitchAPI.OAuth = OAuth
+	TwitchAPI = twitchAPI
 }
 
-func (api *TwitchAPI) GetOAuthToken() (models.OAuthResponse, error) {
+func (api *twitchAPI) getOAuthToken() (models.OAuthResponse, error) {
 	client := &http.Client{}
 	apiUrl := "https://id.twitch.tv/oauth2/token"
 
@@ -68,7 +80,7 @@ func (api *TwitchAPI) GetOAuthToken() (models.OAuthResponse, error) {
 	return auth, nil
 }
 
-func (api *TwitchAPI) SubscribeToTwitchEvent(oauthToken string) {
+func (api *twitchAPI) SubscribeToTwitchEvent() {
 	client := &http.Client{}
 	url := "https://api.twitch.tv/helix/eventsub/subscriptions"
 
@@ -81,16 +93,16 @@ func (api *TwitchAPI) SubscribeToTwitchEvent(oauthToken string) {
 		},
 		"transport": map[string]string{
 			"method":   "webhook",
-			"callback": "https://frj042t4-8080.euw.devtunnels.ms/notify",
-			"secret":   "s3cRe7asas", // URL вашего сервера
+			"callback": api.serverURL + "/notify",
+			"secret":   "s3cRe7asas",
 		},
 	}
 
 	// Преобразуем тело в JSON
 	payloadBytes, _ := json.Marshal(payload)
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
-	req.Header.Set("Authorization", "Bearer "+oauthToken) // Замените на токен
-	req.Header.Set("Client-Id", api.clientId)             // Замените на ваш Client ID
+	req.Header.Set("Authorization", "Bearer "+api.OAuth.Access_token) // Замените на токен
+	req.Header.Set("Client-Id", api.clientId)                         // Замените на ваш Client ID
 	req.Header.Set("Content-Type", "application/json")
 
 	// Отправляем запрос
