@@ -8,16 +8,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RazuOff/NotifyTwitchBot/package/models"
+	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
-func (api *twitchAPI) GetStreamInfo(id string) (models.StreamInfo, error) {
+func (api *twitchAPI) GetStreamInfo(id string) (twitchmodels.StreamInfo, error) {
 	client := &http.Client{}
 	apiUrl := "https://api.twitch.tv/helix/channels"
 
 	req, err := http.NewRequest("GET", apiUrl, nil)
 	if err != nil {
-		return models.StreamInfo{}, err
+		return twitchmodels.StreamInfo{}, err
 	}
 
 	q := req.URL.Query()
@@ -30,22 +30,22 @@ func (api *twitchAPI) GetStreamInfo(id string) (models.StreamInfo, error) {
 	for i := 0; i < tryNumber; i++ {
 		resp, err := client.Do(req)
 		if err != nil {
-			return models.StreamInfo{}, err
+			return twitchmodels.StreamInfo{}, err
 		}
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return models.StreamInfo{}, err
+			return twitchmodels.StreamInfo{}, err
 		}
 
 		log.Println("GetStreamInfo Response body:", string(body))
 
 		var result struct {
-			Data []models.StreamInfo `json:"data"`
+			Data []twitchmodels.StreamInfo `json:"data"`
 		}
 		if err := json.Unmarshal(body, &result); err != nil {
-			return models.StreamInfo{}, err
+			return twitchmodels.StreamInfo{}, err
 		}
 
 		if len(result.Data) != 0 {
@@ -59,5 +59,5 @@ func (api *twitchAPI) GetStreamInfo(id string) (models.StreamInfo, error) {
 
 	}
 
-	return models.StreamInfo{}, errors.New("stream info is nil")
+	return twitchmodels.StreamInfo{}, errors.New("stream info is nil")
 }

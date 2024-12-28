@@ -7,17 +7,16 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 
-	"github.com/RazuOff/NotifyTwitchBot/package/models"
+	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
 type twitchAPI struct {
 	clientId  string
 	appToken  string
 	serverURL string
-	OAuth     models.OAuthResponse
+	OAuth     twitchmodels.OAuthResponse
 }
 
 var TwitchAPI *twitchAPI
@@ -43,41 +42,6 @@ func Init() {
 	}
 	twitchAPI.OAuth = OAuth
 	TwitchAPI = twitchAPI
-}
-
-func (api *twitchAPI) getOAuthToken() (models.OAuthResponse, error) {
-	client := &http.Client{}
-	apiUrl := "https://id.twitch.tv/oauth2/token"
-
-	payload := url.Values{}
-	payload.Set("client_id", api.clientId)
-	payload.Set("client_secret", api.appToken)
-	payload.Set("grant_type", "client_credentials")
-
-	req, _ := http.NewRequest("POST", apiUrl, bytes.NewBuffer([]byte(payload.Encode())))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	// Отправляем запрос
-	resp, err := client.Do(req)
-	if err != nil {
-		return models.OAuthResponse{}, err
-	}
-
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return models.OAuthResponse{}, err
-	}
-
-	var auth models.OAuthResponse
-	err = json.Unmarshal(body, &auth)
-	if err != nil {
-		return models.OAuthResponse{}, err
-	}
-
-	log.Println("GetOAuthToken Response Status:", resp.Status)
-	return auth, nil
 }
 
 func (api *twitchAPI) SubscribeToTwitchEvent() {

@@ -4,8 +4,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
-	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -23,20 +21,7 @@ func StartTelegramBot() {
 	u.Timeout = 60
 
 	updates := Bot.GetUpdatesChan(u)
-
-	go func() {
-		for update := range updates {
-			if update.Message != nil { // If we got a message
-				// log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-				repository.AddChat(update.Message.Chat.ID)
-				SendMessage(update.Message.Chat.ID, twitch.TwitchAPI.CreateAuthLink(update.Message.Chat.ID))
-				// msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-				// msg.ReplyToMessageID = update.Message.MessageID
-
-				// Bot.Send(msg)
-			}
-		}
-	}()
+	HandleUpdates(updates)
 }
 
 func Init() *tgbotapi.BotAPI {

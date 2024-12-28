@@ -5,13 +5,13 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/RazuOff/NotifyTwitchBot/package/models"
+	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
 type Chat struct {
-	ID              int64                   `json:"id"`
-	UserAccessToken models.UserAccessTokens `json:"user_accessToken"`
-	UUID            string                  `json:"uuid"`
+	ID              int64                         `json:"id"`
+	UserAccessToken twitchmodels.UserAccessTokens `json:"user_accessToken"`
+	UUID            string                        `json:"uuid"`
 }
 
 var Chats []*Chat
@@ -22,7 +22,7 @@ func AddChat(chatId int64) {
 	}
 }
 
-func SetToken(chatID int64, token models.UserAccessTokens) error {
+func SetToken(chatID int64, token twitchmodels.UserAccessTokens) error {
 	chat, exists := GetChat(chatID)
 	if !exists {
 		return errors.New("Chat does not exists")

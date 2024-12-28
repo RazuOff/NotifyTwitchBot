@@ -7,8 +7,9 @@ import (
 	"net/http"
 
 	"github.com/RazuOff/NotifyTwitchBot/internal/telegram"
-	"github.com/RazuOff/NotifyTwitchBot/package/models"
+
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
+	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -36,7 +37,7 @@ func HandleNotifyWebhook(c *gin.Context) {
 		return
 	}
 
-	var event models.Event
+	var event twitchmodels.Event
 	err = json.Unmarshal([]byte(data["event"]), &event)
 	if err != nil {
 		fmt.Println("Error decoding Event:", err)
