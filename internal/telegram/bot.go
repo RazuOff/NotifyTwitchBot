@@ -13,7 +13,7 @@ func StartTelegramBot() {
 
 	Bot = Init()
 
-	Bot.Debug = true
+	Bot.Debug = false
 
 	log.Printf("Authorized on account %s", Bot.Self.UserName)
 

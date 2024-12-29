@@ -1,5 +1,22 @@
 package twitchmodels
 
+type FollowInfo struct {
+	BroadcasterID    string `json:"broadcaster_id"`
+	BroadcasterLogin string `json:"broadcaster_login"`
+	BroadcasterName  string `json:"broadcaster_name"`
+	FollowedAt       string `json:"followed_at"`
+}
+
+type DeafultAccountClaims struct {
+	Aud               string `json:"aud"`
+	Azp               string `json:"azp"`
+	Exp               int64  `json:"exp"`
+	Iat               int64  `json:"iat"`
+	Iss               string `json:"iss"`
+	Sub               string `json:"sub"`
+	PreferredUsername string `json:"preferred_username"`
+}
+
 type OAuthResponse struct {
 	Access_token string `json:"access_token"`
 	ExpiresIn    int    `json:"expires_in"`

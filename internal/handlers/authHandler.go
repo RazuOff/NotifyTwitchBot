@@ -36,12 +36,16 @@ func HandleAuthRedirect(c *gin.Context) {
 	code := c.Query("code")
 	userAccessToken, err := twitch.TwitchAPI.GetUserAccessToken(code)
 	if err != nil {
-		HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+		handleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
 		return
 	}
 
 	if err := repository.SetToken(chat.ID, userAccessToken); err != nil {
-		HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+		handleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+		return
+	}
+
+	if !handleSettingTwitchID(chat, c) {
 		return
 	}
 
@@ -50,8 +54,24 @@ func HandleAuthRedirect(c *gin.Context) {
 	c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 }
 
-func HandleAuthError(chatID int64, text string, c *gin.Context, err error) {
+func handleSettingTwitchID(chat *repository.Chat, c *gin.Context) bool {
+
+	claims, err := twitch.TwitchAPI.GetAccountClaims(&chat.UserAccessToken)
+	if err != nil {
+		handleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+		return false
+	}
+
+	if err = repository.SetTwitchID(chat.ID, claims.Sub); err != nil {
+		handleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+		return false
+	}
+	return true
+}
+
+func handleAuthError(chatID int64, text string, c *gin.Context, err error) {
 	log.Println(err)
 	c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
+	repository.DeleteChat(chatID)
 	telegram.SendMessage(chatID, text)
 }
