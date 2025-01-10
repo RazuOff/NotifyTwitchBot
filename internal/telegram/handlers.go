@@ -11,6 +11,7 @@ import (
 const START_COMMAND = "start"
 const LOGIN_COMMAND = "login"
 const FOLLOW_COMMAND = "follows"
+const EXIT_COMMAND = "exit"
 
 func HandleUpdates(updates tgbotapi.UpdatesChannel) {
 	go func() {
@@ -35,6 +36,8 @@ func handleCommands(message *tgbotapi.Message) {
 		handleLoginCommand(message)
 	case FOLLOW_COMMAND:
 		handleFollowsCommand(message)
+	case EXIT_COMMAND:
+		handleExitCommand(message)
 	default:
 
 	}
@@ -46,18 +49,41 @@ func handleStartCommand(message *tgbotapi.Message) {
 }
 
 func handleLoginCommand(message *tgbotapi.Message) {
-	repository.AddChat(message.Chat.ID)
+
+	chat, err := repository.GetChat(message.Chat.ID)
+	if err != nil {
+		log.Printf("handleLoginCommand error: %s", err)
+		SendMessage(message.Chat.ID, "У нас сломалась БД(")
+		return
+	}
+
+	if chat != nil && chat.TwitchID != "" && chat.UserAccessToken.AccessToken != "" {
+		SendMessage(message.Chat.ID, "Вы уже вошли в аккаунт")
+		return
+	}
+
+	if err := repository.AddChat(message.Chat.ID); err != nil {
+		log.Printf("handleLoginCommand error: %s", err.Error())
+		SendMessage(message.Chat.ID, "У нас сломалась БД(")
+		return
+	}
 	SendMessage(message.Chat.ID, "Пройди по ссылке ниже и зайди в аккаунт твича")
 	SendMessage(message.Chat.ID, twitch.TwitchAPI.CreateAuthLink(message.Chat.ID))
 }
 
 func handleFollowsCommand(message *tgbotapi.Message) {
-	chat, exists := repository.GetChat(message.Chat.ID)
-	if !exists {
+	chat, err := repository.GetChat(message.Chat.ID)
+	if err != nil {
+		log.Printf("handleFollowsCommand error")
+		SendMessage(message.Chat.ID, "У нас сломалась БД(")
+		return
+	}
+
+	if chat == nil {
 		SendMessage(message.Chat.ID, "Для начала войди в аккаунт")
 		return
 	}
-	follows, err := twitch.TwitchAPI.GetAccountFollows(chat.TwitchID)
+	follows, err := twitch.TwitchAPI.GetAccountFollows(chat)
 	if err != nil {
 		SendMessage(message.Chat.ID, "Что-то пошло не так, попробуй позже(")
 		log.Println("GetAccountFollows error=" + err.Error())
@@ -65,8 +91,29 @@ func handleFollowsCommand(message *tgbotapi.Message) {
 	}
 
 	for _, follow := range follows {
-		SendMessage(message.Chat.ID, follow.BroadcasterLogin)
+		SendMessage(message.Chat.ID, follow.BroadcasterName)
 	}
+}
+
+func handleExitCommand(message *tgbotapi.Message) {
+	chat, err := repository.GetChat(message.Chat.ID)
+	if err != nil {
+		log.Printf("handleFollowsCommand error")
+		SendMessage(message.Chat.ID, "У нас сломалась БД(")
+		return
+	}
+
+	if chat == nil {
+		SendMessage(message.Chat.ID, "Для начала войди в аккаунт")
+		return
+	}
+	if err := repository.DeleteChat(chat.ID); err != nil {
+		log.Printf("handleFollowsCommand error")
+		SendMessage(message.Chat.ID, "У нас сломалась БД(")
+		return
+	}
+
+	SendMessage(message.Chat.ID, "Вы успешно вышли из аккаунта!")
 }
 
 func handleNotCommand(message *tgbotapi.Message) {

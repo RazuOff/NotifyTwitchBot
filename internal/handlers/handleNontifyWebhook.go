@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
 	"github.com/RazuOff/NotifyTwitchBot/internal/telegram"
 
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
@@ -54,8 +55,15 @@ func HandleNotifyWebhook(c *gin.Context) {
 
 	log.Println("Received stream info:", streamInfo)
 
-	if err := telegram.SendMessageToAll(streamInfo.BroadcasterName + " Start stream"); err != nil {
-		log.Print("Message send error")
+	chats, err := repository.GetChatsByFollow(streamInfo.BroadcasterID)
+	if err != nil {
+		log.Println("HandleNotifyWebhook error: " + err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, chat := range chats {
+		telegram.SendMessage(chat.ID, streamInfo.BroadcasterName+" START STREAM!!")
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})

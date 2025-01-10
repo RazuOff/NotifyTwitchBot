@@ -1,107 +1,131 @@
 package repository
 
 import (
-	"errors"
+	"fmt"
 	"log"
-	"strconv"
 
+	"github.com/RazuOff/NotifyTwitchBot/internal/models"
+	"github.com/RazuOff/NotifyTwitchBot/internal/postgre"
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
+	"gorm.io/gorm/clause"
 )
 
-type Chat struct {
-	ID              int64                         `json:"id"`
-	TwitchID        string                        `json:"twitch_id"`
-	UserAccessToken twitchmodels.UserAccessTokens `json:"user_accessToken"`
-	UUID            string                        `json:"uuid"`
-}
+func AddChat(chatId int64) error {
 
-var Chats []*Chat
+	chat := models.Chat{ID: chatId}
 
-func AddChat(chatId int64) {
-	if !ChatExists(chatId) {
-		Chats = append(Chats, &Chat{ID: chatId})
+	if err := postgre.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&chat).Error; err != nil {
+		log.Printf("Error while inserting chat: %v", err)
+		return fmt.Errorf("AddChat error: %w", err)
 	}
-}
-
-func DeleteChat(chatID int64) (exists bool) {
-	for index, chat := range Chats {
-		if chat.ID == chatID {
-			Chats = append(Chats[:index], Chats[index+1:]...)
-			return true
-		}
-	}
-	return false
-}
-
-func SetToken(chatID int64, token twitchmodels.UserAccessTokens) error {
-	chat, exists := GetChat(chatID)
-	if !exists {
-		return errors.New("Chat does not exists")
-	}
-	chat.UserAccessToken = token
-
-	log.Print("CHAT_ID:" + strconv.FormatInt(chatID, 10) + "TOKEN:")
-	log.Println(token)
 
 	return nil
 }
 
-func SetTwitchID(chatID int64, twitchID string) error {
-	chat, exists := GetChat(chatID)
-	if !exists {
-		return errors.New("Chat does not exists")
+func DeleteChat(chatID int64) error {
+
+	var chat models.Chat
+	if err := postgre.DB.Preload("Follows").First(&chat, chatID).Error; err != nil {
+		return err
+	}
+
+	// Получить IDs связанных Follow перед удалением
+	var followIDs []string
+	for _, follow := range chat.Follows {
+		followIDs = append(followIDs, follow.ID)
+	}
+
+	// Удалить запись Chat и связи в chat_follows
+	if err := postgre.DB.Delete(&chat).Error; err != nil {
+		return err
+	}
+
+	if err := postgre.DB.Delete(&models.Follow{}, "id IN ? AND NOT EXISTS (SELECT 1 FROM chat_follows WHERE chat_follows.follow_id = id)", followIDs).Error; err != nil {
+		return err
+	}
+
+	//ДОБАВИТЬ ОТМЕНУ ПОДПИСИ НА WEBHOOK
+
+	return nil
+}
+
+func SetToken(chat *models.Chat, token twitchmodels.UserAccessTokens) error {
+
+	chat.UserAccessToken = token
+
+	if err := postgre.DB.Save(chat).Error; err != nil {
+		log.Printf("SetToken save error")
+		return err
+	}
+	log.Printf("CHAT_ID:  %d TOKEN: %+v", chat.ID, token)
+
+	return nil
+}
+
+func SetTwitchID(chat *models.Chat, twitchID string) error {
+
+	chat.TwitchID = twitchID
+	if err := postgre.DB.Save(chat).Error; err != nil {
+		log.Printf("SetTwitchID save error")
+		return err
 	}
 	log.Printf("%d Chat sets twitchID = %s", chat.ID, twitchID)
-	chat.TwitchID = twitchID
+
 	return nil
 }
 
 func SetUUID(chatID int64, uuid string) error {
-	chat, exists := GetChat(chatID)
-	if !exists {
-		return errors.New("Chat does not exists")
+	chat, err := GetChat(chatID)
+	if err != nil {
+		log.Printf("SetUUID error")
+		return err
+	}
+
+	if chat == nil {
+		return fmt.Errorf("сhat not found")
+	}
+
+	chat.UUID = uuid
+	if err := postgre.DB.Save(chat).Error; err != nil {
+		log.Printf("SetUUID save error")
+		return err
 	}
 	log.Printf("%d Chat sets token = %s", chat.ID, uuid)
-	chat.UUID = uuid
+
 	return nil
 }
 
-func GetChatByUUID(uuid string) (*Chat, error) {
-	for _, chat := range Chats {
-		if chat.UUID == uuid {
-			chat.UUID = ""
-			return chat, nil
-		}
+func GetChatByUUID(uuid string) (*models.Chat, error) {
+
+	var chat models.Chat
+
+	if err := postgre.DB.Where("uuid = ?", uuid).Find(&chat).Error; err != nil {
+		log.Printf("GetChatByUUID error")
+		return nil, err
 	}
 
-	return &Chat{}, errors.New("uuid not found")
+	return &chat, nil
 }
 
-func GetChatByTwitchID(twitchID string) (*Chat, error) {
-	for _, chat := range Chats {
-		if chat.TwitchID == twitchID {
-			return chat, nil
-		}
+func GetChatByTwitchID(twitchID string) (*models.Chat, error) {
+	var chat models.Chat
+
+	if err := postgre.DB.Where("twitch_id = ?", twitchID).Find(&chat).Error; err != nil {
+		log.Printf("GetChatByTwitchID error")
+		return nil, err
 	}
 
-	return &Chat{}, errors.New("TwitchID not found")
+	return &chat, nil
 }
 
-func GetChat(chatID int64) (chat *Chat, exists bool) {
-	for _, chat := range Chats {
-		if chat.ID == chatID {
-			return chat, true
-		}
-	}
-	return &Chat{}, false
-}
+func GetChat(chatID int64) (*models.Chat, error) {
 
-func ChatExists(chatID int64) bool {
-	for _, chat := range Chats {
-		if chat.ID == chatID {
-			return true
-		}
+	var chat models.Chat
+
+	if err := postgre.DB.Where("id = ?", chatID).Find(&chat).Error; err != nil {
+		log.Printf("GetChat error")
+		return nil, err
 	}
 
-	return false
+	return &chat, nil
 }

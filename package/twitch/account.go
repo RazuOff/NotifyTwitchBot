@@ -7,33 +7,36 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
+	"github.com/RazuOff/NotifyTwitchBot/internal/models"
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
-func (api *twitchAPI) GetAccountFollows(accountID string) ([]twitchmodels.FollowInfo, error) {
+func (api *twitchAPI) GetAccountFollows(chat *models.Chat) ([]twitchmodels.FollowInfo, error) {
 	apiURL := "https://api.twitch.tv/helix/channels/followed"
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
+		log.Print("GetAccountFollows error")
 		return []twitchmodels.FollowInfo{}, err
 	}
 	queries := url.Values{}
-	queries.Set("user_id", accountID)
+	queries.Set("user_id", chat.TwitchID)
 	queries.Set("first", "100")
 
 	req.URL.RawQuery = queries.Encode()
 
-	currentChat, err := repository.GetChatByTwitchID(accountID)
-	if err != nil {
-		return []twitchmodels.FollowInfo{}, err
-	}
+	// currentChat, err := repository.GetChatByTwitchID(accountID)
+	// if err != nil {
+	// 	log.Print("GetAccountFollows error")
+	// 	return []twitchmodels.FollowInfo{}, err
+	// }
 
-	req.Header.Set("Authorization", "Bearer "+currentChat.UserAccessToken.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+chat.UserAccessToken.AccessToken)
 	req.Header.Set("Client-Id", api.clientId)
 
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Print("GetAccountFollows error")
 		return []twitchmodels.FollowInfo{}, err
 	}
 	defer resp.Body.Close()
@@ -43,11 +46,13 @@ func (api *twitchAPI) GetAccountFollows(accountID string) ([]twitchmodels.Follow
 	var data map[string]json.RawMessage
 
 	if err = json.Unmarshal(rawData, &data); err != nil {
+		log.Print("GetAccountFollows error")
 		return []twitchmodels.FollowInfo{}, err
 	}
 
 	var followInfo []twitchmodels.FollowInfo
 	if err = json.Unmarshal([]byte(data["data"]), &followInfo); err != nil {
+		log.Print("GetAccountFollows error")
 		return []twitchmodels.FollowInfo{}, err
 	}
 
@@ -55,10 +60,11 @@ func (api *twitchAPI) GetAccountFollows(accountID string) ([]twitchmodels.Follow
 
 }
 
-func (api *twitchAPI) GetAccountClaims(token *twitchmodels.UserAccessTokens) (twitchmodels.DeafultAccountClaims, error) {
+func (api *twitchAPI) GetAccountClaims(token twitchmodels.UserAccessTokens) (twitchmodels.DeafultAccountClaims, error) {
 	apiURL := "https://id.twitch.tv/oauth2/userinfo"
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
+		log.Print("GetAccountClaims error")
 		return twitchmodels.DeafultAccountClaims{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -68,6 +74,7 @@ func (api *twitchAPI) GetAccountClaims(token *twitchmodels.UserAccessTokens) (tw
 
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Print("GetAccountClaims error")
 		return twitchmodels.DeafultAccountClaims{}, err
 	}
 	defer resp.Body.Close()
@@ -77,6 +84,7 @@ func (api *twitchAPI) GetAccountClaims(token *twitchmodels.UserAccessTokens) (tw
 	var claims twitchmodels.DeafultAccountClaims
 
 	if err := json.Unmarshal(rawClaims, &claims); err != nil {
+		log.Print("GetAccountClaims error")
 		return twitchmodels.DeafultAccountClaims{}, err
 	}
 
