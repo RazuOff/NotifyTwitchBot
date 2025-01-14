@@ -34,6 +34,16 @@ func HandleAuthRedirect(c *gin.Context) {
 		return
 	}
 
+	if chat.ID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "link is not valid. Try to use /login command"})
+		return
+	}
+
+	if err := repository.DeleteUUID(chat); err != nil {
+		handleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+		return
+	}
+
 	code := c.Query("code")
 	userAccessToken, err := twitch.TwitchAPI.GetUserAccessToken(code)
 	if err != nil {
@@ -51,6 +61,7 @@ func HandleAuthRedirect(c *gin.Context) {
 	}
 
 	if err := subscribeToAllStreamUps(chat, c); err != nil {
+		log.Println(err.Error())
 		return
 	}
 
@@ -62,34 +73,30 @@ func HandleAuthRedirect(c *gin.Context) {
 func subscribeToAllStreamUps(chat *models.Chat, c *gin.Context) error {
 	follows, err := twitch.TwitchAPI.GetAccountFollows(chat)
 	if err != nil {
-		log.Printf("subscribeToAllStreamUps error: %s", err.Error())
-		return err
+		return fmt.Errorf("subscribeToAllStreamUps error: %w", err)
 	}
 
 	for _, f := range follows {
 		if err := repository.AddFollow(chat.ID, models.Follow{ID: f.BroadcasterID, BroadcasterName: f.BroadcasterName}); err != nil {
-			log.Printf("subscribeToAllStreamUps error: %s", err.Error())
-			return err
+			return fmt.Errorf("subscribeToAllStreamUps error: %w", err)
 		}
 	}
 
 	allFollows, err := repository.GetUnSubedFollows()
 	if err != nil {
-		log.Printf("subscribeToAllStreamUps error: %s", err.Error())
-		return err
+		return fmt.Errorf("subscribeToAllStreamUps error: %w", err)
 	}
 
 	subsError := 0
 	var apiError error
 	for _, f := range allFollows {
-		if err := twitch.TwitchAPI.SubscribeToTwitchEvent(f.ID); err != nil {
+		if id, err := twitch.TwitchAPI.SubscribeToTwitchEvent(f.ID); err != nil {
 			apiError = err
 			subsError++
 		} else {
-			f.IsSubscribed = true
+			f.Subscribtion_id = id
 			if err := repository.SaveFollow(&f); err != nil {
-				log.Printf("subscribeToAllStreamUps error: %s", err.Error())
-				return err
+				return fmt.Errorf("subscribeToAllStreamUps error: %w", err)
 			}
 		}
 	}
@@ -122,7 +129,6 @@ func handleAuthError(chatID int64, text string, c *gin.Context, err error) {
 	log.Println(err.Error())
 	c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 	if err := repository.DeleteChat(chatID); err != nil {
-
 		log.Printf("HandleAuthRedirect error: %s", err.Error())
 	}
 	telegram.SendMessage(chatID, text)

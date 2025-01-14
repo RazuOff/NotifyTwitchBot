@@ -1,8 +1,11 @@
 package twitch
 
 import (
+	"context"
 	"log"
 	"os"
+	"sync"
+	"time"
 
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
@@ -12,6 +15,7 @@ type twitchAPI struct {
 	appToken  string
 	serverURL string
 	OAuth     twitchmodels.OAuthResponse
+	mutex     *sync.Mutex
 }
 
 var TwitchAPI *twitchAPI
@@ -29,12 +33,36 @@ func Init() {
 	if !exists {
 		log.Fatal("SERVER_URL env parametr not found!")
 	}
-	twitchAPI := &twitchAPI{clientId: clientId, appToken: appToken, serverURL: server_url}
-
-	OAuth, err := twitchAPI.getOAuthToken()
-	if err != nil {
-		log.Fatal(err)
-	}
-	twitchAPI.OAuth = OAuth
+	twitchAPI := &twitchAPI{clientId: clientId, appToken: appToken, serverURL: server_url, mutex: &sync.Mutex{}}
 	TwitchAPI = twitchAPI
+
+	go TwitchAPI.updateOAuthToken()
+}
+
+func (api *twitchAPI) updateOAuthToken() {
+	for {
+
+		if api.OAuth.ExpiresIn < 1000 {
+			api.mutex.Lock()
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			OAuth, err := api.getOAuthToken(ctx)
+			if err != nil {
+				log.Println(err)
+
+				cancel()
+				api.mutex.Unlock()
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			api.OAuth = OAuth
+
+			api.mutex.Unlock()
+			cancel()
+		} else {
+			api.OAuth.ExpiresIn--
+			time.Sleep(1 * time.Second)
+		}
+	}
 }

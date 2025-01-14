@@ -14,7 +14,6 @@ func (u *UserAccessTokens) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, u)
 }
 
-// Реализация Valuer для записи в базу данных
 func (u *UserAccessTokens) Value() (driver.Value, error) {
 	return json.Marshal(u)
 }

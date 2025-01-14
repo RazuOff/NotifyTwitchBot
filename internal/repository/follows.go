@@ -35,7 +35,7 @@ func GetUnSubedFollows() ([]models.Follow, error) {
 
 	var follows []models.Follow
 
-	if err := postgre.DB.Where("is_subscribed = ?", false).Find(&follows).Error; err != nil {
+	if err := postgre.DB.Where("subscribtion_id = ?", "").Find(&follows).Error; err != nil {
 		log.Printf("GetFollow error")
 		return nil, err
 	}

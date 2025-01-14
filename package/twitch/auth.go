@@ -2,6 +2,7 @@ package twitch
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -9,25 +10,23 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
-
-	"github.com/google/uuid"
 )
 
-func (api *twitchAPI) getOAuthToken() (twitchmodels.OAuthResponse, error) {
+// Getting an app token
+func (api *twitchAPI) getOAuthToken(ctx context.Context) (twitchmodels.OAuthResponse, error) {
 	client := &http.Client{}
 	apiUrl := "https://id.twitch.tv/oauth2/token"
 
 	payload := url.Values{}
+
 	payload.Set("client_id", api.clientId)
 	payload.Set("client_secret", api.appToken)
 	payload.Set("grant_type", "client_credentials")
 
-	req, _ := http.NewRequest("POST", apiUrl, bytes.NewBuffer([]byte(payload.Encode())))
+	req, _ := http.NewRequestWithContext(ctx, "POST", apiUrl, bytes.NewBuffer([]byte(payload.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	// Отправляем запрос
 	resp, err := client.Do(req)
 	if err != nil {
 		return twitchmodels.OAuthResponse{}, err
@@ -50,7 +49,7 @@ func (api *twitchAPI) getOAuthToken() (twitchmodels.OAuthResponse, error) {
 	return auth, nil
 }
 
-func (api *twitchAPI) CreateAuthLink(chatID int64) string {
+func (api *twitchAPI) CreateAuthLink(chatID int64, uuid string) string {
 
 	apiURL := "https://id.twitch.tv/oauth2/authorize"
 	query := url.Values{}
@@ -59,19 +58,13 @@ func (api *twitchAPI) CreateAuthLink(chatID int64) string {
 	query.Set("redirect_uri", redirectURI)
 	query.Set("response_type", "code")
 	query.Set("scope", "user:read:follows")
-	query.Set("state", generateState(chatID))
+	query.Set("state", uuid)
 	query.Set("force_verify", "true")
 
 	parsedURL, _ := url.Parse(apiURL)
 	parsedURL.RawQuery = query.Encode()
 
 	return parsedURL.String()
-}
-
-func generateState(chatID int64) string {
-	uuid := uuid.New().String()
-	repository.SetUUID(chatID, uuid)
-	return uuid
 }
 
 func (api *twitchAPI) GetUserAccessToken(code string) (twitchmodels.UserAccessTokens, error) {

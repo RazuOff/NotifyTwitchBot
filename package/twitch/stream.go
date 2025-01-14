@@ -23,6 +23,10 @@ func (api *twitchAPI) GetStreamInfo(id string) (twitchmodels.StreamInfo, error) 
 	q := req.URL.Query()
 	q.Add("broadcaster_id", id)
 	req.URL.RawQuery = q.Encode()
+
+	api.mutex.Lock()
+	defer api.mutex.Unlock()
+
 	req.Header.Set("Authorization", "Bearer "+api.OAuth.Access_token)
 	req.Header.Set("Client-Id", api.clientId)
 

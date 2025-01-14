@@ -3,6 +3,7 @@ package app
 import (
 	"log"
 
+	"github.com/RazuOff/NotifyTwitchBot/internal/debug"
 	"github.com/RazuOff/NotifyTwitchBot/internal/handlers"
 	"github.com/RazuOff/NotifyTwitchBot/internal/postgre"
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
@@ -20,4 +21,6 @@ func StartServer() {
 		log.Print(err.Error())
 	}
 	twitch.Init()
+
+	go debug.ConsoleInput()
 }

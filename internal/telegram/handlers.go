@@ -18,9 +18,9 @@ func HandleUpdates(updates tgbotapi.UpdatesChannel) {
 		for update := range updates {
 			if update.Message != nil {
 				if update.Message.IsCommand() {
-					handleCommands(update.Message)
+					go handleCommands(update.Message)
 				} else {
-					handleNotCommand(update.Message)
+					go handleNotCommand(update.Message)
 				}
 			}
 
@@ -68,7 +68,15 @@ func handleLoginCommand(message *tgbotapi.Message) {
 		return
 	}
 	SendMessage(message.Chat.ID, "Пройди по ссылке ниже и зайди в аккаунт твича")
-	SendMessage(message.Chat.ID, twitch.TwitchAPI.CreateAuthLink(message.Chat.ID))
+
+	uuid, err := repository.GenerateStateForChat(message.Chat.ID)
+	if err != nil {
+		log.Printf("handleLoginCommand error: %s", err.Error())
+		SendMessage(message.Chat.ID, "У нас сломалась БД(")
+		return
+	}
+
+	SendMessage(message.Chat.ID, twitch.TwitchAPI.CreateAuthLink(message.Chat.ID, uuid))
 }
 
 func handleFollowsCommand(message *tgbotapi.Message) {
@@ -98,17 +106,17 @@ func handleFollowsCommand(message *tgbotapi.Message) {
 func handleExitCommand(message *tgbotapi.Message) {
 	chat, err := repository.GetChat(message.Chat.ID)
 	if err != nil {
-		log.Printf("handleFollowsCommand error")
+		log.Printf("handleExitCommand error")
 		SendMessage(message.Chat.ID, "У нас сломалась БД(")
 		return
 	}
 
-	if chat == nil {
+	if chat.ID == 0 {
 		SendMessage(message.Chat.ID, "Для начала войди в аккаунт")
 		return
 	}
 	if err := repository.DeleteChat(chat.ID); err != nil {
-		log.Printf("handleFollowsCommand error")
+		log.Printf("handleExitCommand error")
 		SendMessage(message.Chat.ID, "У нас сломалась БД(")
 		return
 	}
