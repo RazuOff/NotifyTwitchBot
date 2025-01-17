@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func (u *UserAccessTokens) Scan(value interface{}) error {
+func (u *UserAccessToken) Scan(value interface{}) error {
 	bytes, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("failed to unmarshal JSONB value: %v", value)
@@ -14,6 +14,6 @@ func (u *UserAccessTokens) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, u)
 }
 
-func (u *UserAccessTokens) Value() (driver.Value, error) {
+func (u *UserAccessToken) Value() (driver.Value, error) {
 	return json.Marshal(u)
 }

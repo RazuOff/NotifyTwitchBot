@@ -4,14 +4,22 @@ import (
 	"log"
 
 	"github.com/RazuOff/NotifyTwitchBot/internal/models"
-	"github.com/RazuOff/NotifyTwitchBot/internal/postgre"
+	"gorm.io/gorm"
 )
 
-func GetChatsByFollow(followID string) ([]models.Chat, error) {
+type FollowsPostgre struct {
+	DB *gorm.DB
+}
+
+func NewFollowsPostgre(db *gorm.DB) *FollowsPostgre {
+	return &FollowsPostgre{DB: db}
+}
+
+func (repository *FollowsPostgre) GetChatsByFollow(followID string) ([]models.Chat, error) {
 
 	var chats []models.Chat
 
-	if err := postgre.DB.Preload("Follows", "id = ?", followID).Find(&chats).Error; err != nil {
+	if err := repository.DB.Preload("Follows", "id = ?", followID).Find(&chats).Error; err != nil {
 		log.Printf("GetChatsByFollow error")
 		return nil, err
 	}
@@ -19,11 +27,11 @@ func GetChatsByFollow(followID string) ([]models.Chat, error) {
 	return chats, nil
 }
 
-func GetFollow(id string) (*models.Follow, error) {
+func (repository *FollowsPostgre) GetFollow(id string) (*models.Follow, error) {
 
 	var follow models.Follow
 
-	if err := postgre.DB.Where("id = ?", id).Find(&follow).Error; err != nil {
+	if err := repository.DB.Where("id = ?", id).Find(&follow).Error; err != nil {
 		log.Printf("GetFollow error")
 		return nil, err
 	}
@@ -31,11 +39,11 @@ func GetFollow(id string) (*models.Follow, error) {
 	return &follow, nil
 }
 
-func GetUnSubedFollows() ([]models.Follow, error) {
+func (repository *FollowsPostgre) GetUnSubedFollows() ([]models.Follow, error) {
 
 	var follows []models.Follow
 
-	if err := postgre.DB.Where("subscribtion_id = ?", "").Find(&follows).Error; err != nil {
+	if err := repository.DB.Where("subscribtion_id = ?", "").Find(&follows).Error; err != nil {
 		log.Printf("GetFollow error")
 		return nil, err
 	}
@@ -43,9 +51,9 @@ func GetUnSubedFollows() ([]models.Follow, error) {
 	return follows, nil
 }
 
-func SaveFollow(follow *models.Follow) error {
+func (repository *FollowsPostgre) SaveFollow(follow *models.Follow) error {
 
-	if err := postgre.DB.Save(follow).Error; err != nil {
+	if err := repository.DB.Save(follow).Error; err != nil {
 		log.Printf("SaveFollow  error")
 		return err
 	}
@@ -53,20 +61,20 @@ func SaveFollow(follow *models.Follow) error {
 	return nil
 }
 
-func AddFollow(chatID int64, follow models.Follow) error {
+func (repository *FollowsPostgre) AddFollow(chatID int64, follow models.Follow) error {
 
-	if err := postgre.DB.FirstOrCreate(&follow).Error; err != nil {
+	if err := repository.DB.FirstOrCreate(&follow).Error; err != nil {
 		log.Printf("Error creating or finding follow: %v", err)
 		return err
 	}
 
 	var chat models.Chat
-	if err := postgre.DB.First(&chat, chatID).Error; err != nil {
+	if err := repository.DB.First(&chat, chatID).Error; err != nil {
 		log.Printf("Error finding chat with ID %d: %v", chatID, err)
 		return err
 	}
 
-	if err := postgre.DB.Model(&chat).Association("Follows").Append(&follow); err != nil {
+	if err := repository.DB.Model(&chat).Association("Follows").Append(&follow); err != nil {
 		log.Printf("Error associating follow with chat: %v", err)
 		return err
 	}

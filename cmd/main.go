@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/RazuOff/NotifyTwitchBot/internal/app"
-	"github.com/RazuOff/NotifyTwitchBot/internal/telegram"
 	"github.com/joho/godotenv"
 )
 
@@ -14,8 +13,7 @@ func main() {
 		log.Fatal("No .env file found")
 	}
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 	app.StartServer()
-	telegram.StartTelegramBot()
 	wg.Wait()
 }

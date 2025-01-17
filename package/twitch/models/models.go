@@ -1,5 +1,7 @@
 package twitchmodels
 
+import "time"
+
 type FollowInfo struct {
 	BroadcasterID    string `json:"broadcaster_id"`
 	BroadcasterLogin string `json:"broadcaster_login"`
@@ -23,12 +25,13 @@ type OAuthResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-type UserAccessTokens struct {
-	AccessToken  string   `json:"access_token"`
-	ExpiresIn    int      `json:"expires_in"`
-	RefreshToken string   `json:"refresh_token"`
-	Scope        []string `json:"scope"`
-	TokenType    string   `json:"token_type"`
+type UserAccessToken struct {
+	AccessToken  string    `json:"access_token"`
+	ExpiresIn    int       `json:"expires_in"`
+	CreatedAt    time.Time `json:"created_at"`
+	RefreshToken string    `json:"refresh_token"`
+	Scope        []string  `json:"scope"`
+	TokenType    string    `json:"token_type"`
 }
 
 type StreamInfo struct {

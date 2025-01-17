@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
@@ -67,7 +68,46 @@ func (api *twitchAPI) CreateAuthLink(chatID int64, uuid string) string {
 	return parsedURL.String()
 }
 
-func (api *twitchAPI) GetUserAccessToken(code string) (twitchmodels.UserAccessTokens, error) {
+func (api *twitchAPI) RefreshUserAccessToken(ctx context.Context, refreshToken string) (twitchmodels.UserAccessToken, error) {
+	apiURL := "https://id.twitch.tv/oauth2/token"
+	reqBody := url.Values{}
+	reqBody.Set("client_id", api.clientId)
+	reqBody.Set("client_secret", api.appToken)
+	reqBody.Set("grant_type", "refresh_token")
+	reqBody.Set("refresh_token", refreshToken)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(reqBody.Encode()))
+	if err != nil {
+		log.Print("RefreshUserAccessToken - request err=" + err.Error())
+		return twitchmodels.UserAccessToken{}, err
+	}
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Print("RefreshUserAccessToken - responce err=" + err.Error())
+		return twitchmodels.UserAccessToken{}, err
+	}
+	defer resp.Body.Close()
+
+	rawData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Print("RefreshUserAccessToken - ReadAll err=" + err.Error())
+		return twitchmodels.UserAccessToken{}, err
+	}
+
+	var userAccessTokens twitchmodels.UserAccessToken
+	if err = json.Unmarshal(rawData, &userAccessTokens); err != nil {
+		log.Print("RefreshUserAccessToken - Unmarshal err=" + err.Error())
+		return twitchmodels.UserAccessToken{}, err
+	}
+
+	userAccessTokens.CreatedAt = time.Now()
+
+	return userAccessTokens, nil
+}
+
+func (api *twitchAPI) GetUserAccessToken(code string) (twitchmodels.UserAccessToken, error) {
 	client := &http.Client{}
 	apiURL := "https://id.twitch.tv/oauth2/token"
 
@@ -81,26 +121,26 @@ func (api *twitchAPI) GetUserAccessToken(code string) (twitchmodels.UserAccessTo
 	req, err := http.NewRequest("POST", apiURL, strings.NewReader(reqBody.Encode()))
 	if err != nil {
 		log.Print("GetAuthTokens - request err=" + err.Error())
-		return twitchmodels.UserAccessTokens{}, err
+		return twitchmodels.UserAccessToken{}, err
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Print("GetAuthTokens - responce err=" + err.Error())
-		return twitchmodels.UserAccessTokens{}, err
+		return twitchmodels.UserAccessToken{}, err
 	}
 	defer resp.Body.Close()
 
 	rawData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Print("GetAuthTokens - ReadAll err=" + err.Error())
-		return twitchmodels.UserAccessTokens{}, err
+		return twitchmodels.UserAccessToken{}, err
 	}
 
-	var userAccessTokens twitchmodels.UserAccessTokens
+	var userAccessTokens twitchmodels.UserAccessToken
 	if err = json.Unmarshal(rawData, &userAccessTokens); err != nil {
 		log.Print("GetAuthTokens - Unmarshal err=" + err.Error())
-		return twitchmodels.UserAccessTokens{}, err
+		return twitchmodels.UserAccessToken{}, err
 	}
 
 	return userAccessTokens, nil

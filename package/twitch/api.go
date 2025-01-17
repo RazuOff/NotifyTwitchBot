@@ -15,7 +15,7 @@ type twitchAPI struct {
 	appToken  string
 	serverURL string
 	OAuth     twitchmodels.OAuthResponse
-	mutex     *sync.Mutex
+	mutex     *sync.RWMutex
 }
 
 var TwitchAPI *twitchAPI
@@ -33,7 +33,7 @@ func Init() {
 	if !exists {
 		log.Fatal("SERVER_URL env parametr not found!")
 	}
-	twitchAPI := &twitchAPI{clientId: clientId, appToken: appToken, serverURL: server_url, mutex: &sync.Mutex{}}
+	twitchAPI := &twitchAPI{clientId: clientId, appToken: appToken, serverURL: server_url, mutex: &sync.RWMutex{}}
 	TwitchAPI = twitchAPI
 
 	go TwitchAPI.updateOAuthToken()

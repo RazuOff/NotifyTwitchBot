@@ -4,28 +4,37 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/RazuOff/NotifyTwitchBot/internal/models"
-	"github.com/RazuOff/NotifyTwitchBot/internal/postgre"
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-func GenerateStateForChat(chatID int64) (string, error) {
+type ChatsPostgre struct {
+	DB *gorm.DB
+}
+
+func NewChatPostgre(db *gorm.DB) *ChatsPostgre {
+	return &ChatsPostgre{DB: db}
+}
+
+func (repository *ChatsPostgre) GenerateStateForChat(chatID int64) (string, error) {
 	uuid := uuid.New().String()
-	if err := SetUUID(chatID, uuid); err != nil {
+	if err := repository.SetUUID(chatID, uuid); err != nil {
 		return "", fmt.Errorf("GenerateState error %w", err)
 	}
 	return uuid, nil
 }
 
-func AddChat(chatId int64) error {
+func (repository *ChatsPostgre) AddChat(chatId int64) error {
 	chat := models.Chat{ID: chatId}
 
-	if err := postgre.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&chat).Error; err != nil {
+	if err := repository.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&chat).Error; err != nil {
 		log.Printf("Error while inserting chat: %v", err)
 		return fmt.Errorf("AddChat error: %w", err)
 	}
@@ -34,8 +43,8 @@ func AddChat(chatId int64) error {
 }
 
 // Delete chats and follows that are not used anymore
-func DeleteChat(chatID int64) error {
-	tx := postgre.DB.Begin()
+func (repository *ChatsPostgre) DeleteChat(chatID int64) error {
+	tx := repository.DB.Begin()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -72,16 +81,25 @@ func DeleteChat(chatID int64) error {
 	}
 
 	var followsToDelete []models.Follow
+	mutex := sync.Mutex{}
+	wg := sync.WaitGroup{}
 	for _, follow := range unusedFollows {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		if err := twitch.TwitchAPI.DeleteEventSub(ctx, follow.Subscribtion_id); err != nil {
-			log.Printf("DeleteChat error: %s", err.Error())
-		} else {
-			followsToDelete = append(followsToDelete, follow)
-		}
-		cancel()
+		wg.Add(1)
+		go func(f models.Follow) {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			if err := twitch.TwitchAPI.DeleteEventSub(ctx, f.Subscribtion_id); err != nil {
+				log.Printf("DeleteChat error: %s", err.Error())
+			} else {
+				mutex.Lock()
+				followsToDelete = append(followsToDelete, f)
+				mutex.Unlock()
+			}
+			cancel()
+		}(follow)
 	}
 
+	wg.Wait()
 	if err := tx.Delete(&followsToDelete).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("DeleteChat error: %w", err)
@@ -92,10 +110,10 @@ func DeleteChat(chatID int64) error {
 	return nil
 }
 
-func DeleteUUID(chat *models.Chat) error {
+func (repository *ChatsPostgre) DeleteUUID(chat *models.Chat) error {
 	chat.UUID = ""
 
-	if err := postgre.DB.Save(chat).Error; err != nil {
+	if err := repository.DB.Save(chat).Error; err != nil {
 		log.Printf("DeleteUUID save error")
 		return err
 	}
@@ -103,10 +121,10 @@ func DeleteUUID(chat *models.Chat) error {
 	return nil
 }
 
-func SetToken(chat *models.Chat, token twitchmodels.UserAccessTokens) error {
+func (repository *ChatsPostgre) SetToken(chat *models.Chat, token twitchmodels.UserAccessToken) error {
 	chat.UserAccessToken = token
 
-	if err := postgre.DB.Save(chat).Error; err != nil {
+	if err := repository.DB.Save(chat).Error; err != nil {
 		log.Printf("SetToken save error")
 		return err
 	}
@@ -115,9 +133,9 @@ func SetToken(chat *models.Chat, token twitchmodels.UserAccessTokens) error {
 	return nil
 }
 
-func SetTwitchID(chat *models.Chat, twitchID string) error {
+func (repository *ChatsPostgre) SetTwitchID(chat *models.Chat, twitchID string) error {
 	chat.TwitchID = twitchID
-	if err := postgre.DB.Save(chat).Error; err != nil {
+	if err := repository.DB.Save(chat).Error; err != nil {
 		log.Printf("SetTwitchID save error")
 		return err
 	}
@@ -126,8 +144,8 @@ func SetTwitchID(chat *models.Chat, twitchID string) error {
 	return nil
 }
 
-func SetUUID(chatID int64, uuid string) error {
-	chat, err := GetChat(chatID)
+func (repository *ChatsPostgre) SetUUID(chatID int64, uuid string) error {
+	chat, err := repository.GetChat(chatID)
 	if err != nil {
 		log.Printf("SetUUID error")
 		return err
@@ -138,7 +156,7 @@ func SetUUID(chatID int64, uuid string) error {
 	}
 
 	chat.UUID = uuid
-	if err := postgre.DB.Save(chat).Error; err != nil {
+	if err := repository.DB.Save(chat).Error; err != nil {
 		log.Printf("SetUUID save error")
 		return err
 	}
@@ -147,11 +165,11 @@ func SetUUID(chatID int64, uuid string) error {
 	return nil
 }
 
-func GetChatByUUID(uuid string) (*models.Chat, error) {
+func (repository *ChatsPostgre) GetChatByUUID(uuid string) (*models.Chat, error) {
 
 	var chat models.Chat
 
-	if err := postgre.DB.Where("uuid = ?", uuid).Find(&chat).Error; err != nil {
+	if err := repository.DB.Where("uuid = ?", uuid).Find(&chat).Error; err != nil {
 		log.Printf("GetChatByUUID error")
 		return nil, err
 	}
@@ -159,10 +177,10 @@ func GetChatByUUID(uuid string) (*models.Chat, error) {
 	return &chat, nil
 }
 
-func GetChatByTwitchID(twitchID string) (*models.Chat, error) {
+func (repository *ChatsPostgre) GetChatByTwitchID(twitchID string) (*models.Chat, error) {
 	var chat models.Chat
 
-	if err := postgre.DB.Where("twitch_id = ?", twitchID).Find(&chat).Error; err != nil {
+	if err := repository.DB.Where("twitch_id = ?", twitchID).Find(&chat).Error; err != nil {
 		log.Printf("GetChatByTwitchID error")
 		return nil, err
 	}
@@ -170,11 +188,11 @@ func GetChatByTwitchID(twitchID string) (*models.Chat, error) {
 	return &chat, nil
 }
 
-func GetChat(chatID int64) (*models.Chat, error) {
+func (repository *ChatsPostgre) GetChat(chatID int64) (*models.Chat, error) {
 
 	var chat models.Chat
 
-	if err := postgre.DB.Where("id = ?", chatID).Find(&chat).Error; err != nil {
+	if err := repository.DB.Where("id = ?", chatID).Find(&chat).Error; err != nil {
 		log.Printf("GetChat error")
 		return nil, err
 	}

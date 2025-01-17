@@ -13,7 +13,7 @@ import (
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
-func (api *twitchAPI) SubscribeToTwitchEvent(broadcasterID string) (string, error) {
+func (api *twitchAPI) SubscribeToTwitchEvent(ctx context.Context, broadcasterID string) (string, error) {
 	client := &http.Client{}
 	url := "https://api.twitch.tv/helix/eventsub/subscriptions"
 
@@ -31,16 +31,16 @@ func (api *twitchAPI) SubscribeToTwitchEvent(broadcasterID string) (string, erro
 	}
 
 	payloadBytes, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
 
-	api.mutex.Lock()
-	defer api.mutex.Unlock()
-
-	req.Header.Set("Authorization", "Bearer "+api.OAuth.Access_token)
+	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(payloadBytes))
 	req.Header.Set("Client-Id", api.clientId)
 	req.Header.Set("Content-Type", "application/json")
 
+	api.mutex.RLock()
+	req.Header.Set("Authorization", "Bearer "+api.OAuth.Access_token)
 	resp, err := client.Do(req)
+	api.mutex.RUnlock()
+
 	if err != nil {
 		return "", fmt.Errorf("SubscribeToTwitchEvent error %w", err)
 	}
@@ -75,8 +75,7 @@ func (api *twitchAPI) DeleteEventSub(ctx context.Context, eventID string) error 
 		return fmt.Errorf("DeleteEventSub error %w", err)
 	}
 
-	api.mutex.Lock()
-	defer api.mutex.Unlock()
+	api.mutex.RLock()
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", api.OAuth.Access_token))
 	req.Header.Set("Client-Id", api.clientId)
@@ -86,8 +85,10 @@ func (api *twitchAPI) DeleteEventSub(ctx context.Context, eventID string) error 
 	req.URL.RawQuery = query.Encode()
 
 	client := http.Client{}
-
 	resp, err := client.Do(req)
+
+	api.mutex.RUnlock()
+
 	if err != nil {
 		return fmt.Errorf("DeleteEventSub error %w", err)
 	}
@@ -106,17 +107,17 @@ func (api *twitchAPI) DeleteEventSub(ctx context.Context, eventID string) error 
 
 func (api *twitchAPI) GetAllSubs(ctx context.Context) ([]string, error) {
 	apiURL := "https://api.twitch.tv/helix/eventsub/subscriptions"
-
 	req, _ := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 
-	api.mutex.Lock()
-	defer api.mutex.Unlock()
+	api.mutex.RLock()
 
 	req.Header.Set("Authorization", "Bearer "+api.OAuth.Access_token)
 	req.Header.Set("Client-Id", api.clientId)
-
 	client := http.Client{}
 	resp, err := client.Do(req)
+
+	api.mutex.RUnlock()
+
 	if err != nil {
 		return nil, fmt.Errorf("GetAllEvents error: %w", err)
 	}
