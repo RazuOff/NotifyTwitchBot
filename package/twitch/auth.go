@@ -15,7 +15,7 @@ import (
 )
 
 // Getting an app token
-func (api *twitchAPI) getOAuthToken(ctx context.Context) (twitchmodels.OAuthResponse, error) {
+func (api *TwitchAPI) getOAuthToken(ctx context.Context) (twitchmodels.OAuthResponse, error) {
 	client := &http.Client{}
 	apiUrl := "https://id.twitch.tv/oauth2/token"
 
@@ -50,7 +50,7 @@ func (api *twitchAPI) getOAuthToken(ctx context.Context) (twitchmodels.OAuthResp
 	return auth, nil
 }
 
-func (api *twitchAPI) CreateAuthLink(chatID int64, uuid string) string {
+func (api *TwitchAPI) CreateAuthLink(chatID int64, state string) string {
 
 	apiURL := "https://id.twitch.tv/oauth2/authorize"
 	query := url.Values{}
@@ -59,7 +59,7 @@ func (api *twitchAPI) CreateAuthLink(chatID int64, uuid string) string {
 	query.Set("redirect_uri", redirectURI)
 	query.Set("response_type", "code")
 	query.Set("scope", "user:read:follows")
-	query.Set("state", uuid)
+	query.Set("state", state)
 	query.Set("force_verify", "true")
 
 	parsedURL, _ := url.Parse(apiURL)
@@ -68,7 +68,7 @@ func (api *twitchAPI) CreateAuthLink(chatID int64, uuid string) string {
 	return parsedURL.String()
 }
 
-func (api *twitchAPI) RefreshUserAccessToken(ctx context.Context, refreshToken string) (twitchmodels.UserAccessToken, error) {
+func (api *TwitchAPI) RefreshUserAccessToken(ctx context.Context, refreshToken string) (twitchmodels.UserAccessToken, error) {
 	apiURL := "https://id.twitch.tv/oauth2/token"
 	reqBody := url.Values{}
 	reqBody.Set("client_id", api.clientId)
@@ -107,7 +107,7 @@ func (api *twitchAPI) RefreshUserAccessToken(ctx context.Context, refreshToken s
 	return userAccessTokens, nil
 }
 
-func (api *twitchAPI) GetUserAccessToken(code string) (twitchmodels.UserAccessToken, error) {
+func (api *TwitchAPI) GetUserAccessToken(code string) (twitchmodels.UserAccessToken, error) {
 	client := &http.Client{}
 	apiURL := "https://id.twitch.tv/oauth2/token"
 

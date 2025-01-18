@@ -13,7 +13,7 @@ import (
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
-func (api *twitchAPI) SubscribeToTwitchEvent(ctx context.Context, broadcasterID string) (string, error) {
+func (api *TwitchAPI) SubscribeToTwitchEvent(ctx context.Context, broadcasterID string) (string, error) {
 	client := &http.Client{}
 	url := "https://api.twitch.tv/helix/eventsub/subscriptions"
 
@@ -67,7 +67,7 @@ func (api *twitchAPI) SubscribeToTwitchEvent(ctx context.Context, broadcasterID 
 	return data.Data[0].ID, nil
 }
 
-func (api *twitchAPI) DeleteEventSub(ctx context.Context, eventID string) error {
+func (api *TwitchAPI) DeleteEventSub(ctx context.Context, eventID string) error {
 	apiURL := "https://api.twitch.tv/helix/eventsub/subscriptions"
 
 	req, err := http.NewRequestWithContext(ctx, "DELETE", apiURL, nil)
@@ -105,7 +105,7 @@ func (api *twitchAPI) DeleteEventSub(ctx context.Context, eventID string) error 
 	return nil
 }
 
-func (api *twitchAPI) GetAllSubs(ctx context.Context) ([]string, error) {
+func (api *TwitchAPI) GetAllSubs(ctx context.Context) ([]string, error) {
 	apiURL := "https://api.twitch.tv/helix/eventsub/subscriptions"
 	req, _ := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 

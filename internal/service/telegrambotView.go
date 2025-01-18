@@ -17,9 +17,10 @@ const EXIT_COMMAND = "exit"
 type TelegramView struct {
 	repository repository.Chats
 	api        *tgbotapi.BotAPI
+	twitchAPI  *twitch.TwitchAPI
 }
 
-func NewTelegramView(repo repository.Chats) *TelegramView {
+func NewTelegramView(repo repository.Chats, api *twitch.TwitchAPI) *TelegramView {
 
 	botToken, exists := os.LookupEnv("TELEGRAM_API_TOKEN")
 	if !exists {
@@ -31,7 +32,7 @@ func NewTelegramView(repo repository.Chats) *TelegramView {
 		log.Panic(err)
 	}
 
-	return &TelegramView{repository: repo, api: view}
+	return &TelegramView{repository: repo, api: view, twitchAPI: api}
 }
 
 func (view *TelegramView) StartHandlingMessages() {
@@ -40,10 +41,19 @@ func (view *TelegramView) StartHandlingMessages() {
 
 	log.Printf("Authorized on account %s", view.api.Self.UserName)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	updatesConfig := tgbotapi.NewUpdate(0)
+	updatesConfig.Timeout = 0
 
-	updates := view.api.GetUpdatesChan(u)
+	oldUpdates, _ := view.api.GetUpdates(updatesConfig)
+	lastUpdateID := 0
+	for _, update := range oldUpdates {
+		lastUpdateID = update.UpdateID
+	}
+
+	updatesConfig.Offset = lastUpdateID + 1
+	updatesConfig.Timeout = 60
+
+	updates := view.api.GetUpdatesChan(updatesConfig)
 	view.handleUpdates(updates)
 }
 
@@ -110,7 +120,7 @@ func (view *TelegramView) handleLoginCommand(chatID int64) {
 		return
 	}
 
-	view.SendMessage(chatID, twitch.TwitchAPI.CreateAuthLink(chatID, uuid))
+	view.SendMessage(chatID, view.twitchAPI.CreateAuthLink(chatID, uuid))
 }
 
 func (view *TelegramView) handleFollowsCommand(chatID int64) {
@@ -125,7 +135,7 @@ func (view *TelegramView) handleFollowsCommand(chatID int64) {
 		view.SendMessage(chatID, "Для начала войди в аккаунт")
 		return
 	}
-	follows, err := twitch.TwitchAPI.GetAccountFollows(chat.TwitchID, chat.UserAccessToken)
+	follows, err := view.twitchAPI.GetAccountFollows(chat.TwitchID, chat.UserAccessToken)
 	if err != nil {
 		view.SendMessage(chatID, "Что-то пошло не так, попробуй позже(")
 		log.Println("GetAccountFollows error=" + err.Error())

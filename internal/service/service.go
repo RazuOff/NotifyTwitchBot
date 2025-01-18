@@ -4,7 +4,7 @@ import (
 	"github.com/RazuOff/NotifyTwitchBot/internal/models"
 	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
 	"github.com/RazuOff/NotifyTwitchBot/package/apperrors"
-	"github.com/gin-gonic/gin"
+	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
 )
 
 type Redirect interface {
@@ -12,7 +12,7 @@ type Redirect interface {
 	SetUserAccessToken(code string, chat *models.Chat) error
 	SetTwitchID(chat *models.Chat) error
 	SubscribeToAllStreamUps(chat *models.Chat) (int, error)
-	HandleAuthError(chatID int64, text string, c *gin.Context, err error)
+	HandleAuthError(chatID int64, text string, err error)
 }
 
 type Notify interface {
@@ -29,15 +29,23 @@ type View interface {
 	handleNotCommand(chatID int64)
 }
 
+type Debug interface {
+	HandleInput()
+	printSubs(input string) bool
+	deleteSubs(input string) bool
+}
+
 type Service struct {
 	Redirect
 	Notify
 	View
+	Debug
 }
 
-func NewService(repository *repository.Repository) *Service {
-	service := Service{View: NewTelegramView(repository)}
-	service.Redirect = NewRedirectService(repository, service.View)
-	service.Notify = NewNotifyService(repository, service.View)
+func NewService(repository *repository.Repository, twitchAPI *twitch.TwitchAPI) *Service {
+	service := Service{View: NewTelegramView(repository, twitchAPI)}
+	service.Redirect = NewRedirectService(repository, service.View, twitchAPI)
+	service.Notify = NewNotifyService(repository, service.View, twitchAPI)
+	service.Debug = NewDebugConsoleService(twitchAPI)
 	return &service
 }

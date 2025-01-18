@@ -2,6 +2,7 @@ package repository
 
 import (
 	"github.com/RazuOff/NotifyTwitchBot/internal/models"
+	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 	"gorm.io/gorm"
 )
@@ -32,6 +33,6 @@ type Repository struct {
 	Follows
 }
 
-func NewRepository(db *gorm.DB) *Repository {
-	return &Repository{Chats: NewChatPostgre(db), Follows: NewFollowsPostgre(db)}
+func NewRepository(db *gorm.DB, twitchAPI *twitch.TwitchAPI) *Repository {
+	return &Repository{Chats: NewChatPostgre(db, twitchAPI), Follows: NewFollowsPostgre(db)}
 }

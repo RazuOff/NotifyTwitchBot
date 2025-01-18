@@ -23,10 +23,11 @@ func (h *Handler) HandleAuthRedirect(c *gin.Context) {
 	}
 	log.Printf("Get status = %s", state)
 
-	chat, err := h.services.GetChatFromRedirect(state)
+	chat, err := h.redirectService.GetChatFromRedirect(state)
 	if err != nil {
 		if chat != nil {
-			h.services.Redirect.HandleAuthError(chat.ID, "Сломалась БД(", c, nil)
+			h.redirectService.HandleAuthError(chat.ID, "Сломалась БД(", nil)
+			c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 			return
 		}
 		log.Printf("HandleAuthRedirect error: %s", err.Error())
@@ -35,27 +36,30 @@ func (h *Handler) HandleAuthRedirect(c *gin.Context) {
 	}
 
 	code := c.Query("code")
-	if err := h.services.SetUserAccessToken(code, chat); err != nil {
-		h.services.Redirect.HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+	if err := h.redirectService.SetUserAccessToken(code, chat); err != nil {
+		h.redirectService.HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", err)
+		c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 		return
 	}
 
-	if err := h.services.SetTwitchID(chat); err != nil {
-		h.services.Redirect.HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+	if err := h.redirectService.SetTwitchID(chat); err != nil {
+		h.redirectService.HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", err)
+		c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 		return
 	}
 
-	errCount, err := h.services.SubscribeToAllStreamUps(chat)
+	errCount, err := h.redirectService.SubscribeToAllStreamUps(chat)
 	if err != nil {
 		if errCount > 0 {
-			h.services.View.SendMessage(chat.ID, fmt.Sprintf("%d фоллоу не получилось подписать на оповещения(", errCount))
+			h.viewService.SendMessage(chat.ID, fmt.Sprintf("%d фоллоу не получилось подписать на оповещения(", errCount))
 			c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 			return
 		}
-		h.services.Redirect.HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", c, err)
+		h.redirectService.HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", err)
+		c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 		return
 	}
 
-	h.services.View.SendMessage(chat.ID, "Вы успешно вошли в аккаунт!\nТеперь вам будут прихожить уведомления о начале стримов")
+	h.viewService.SendMessage(chat.ID, "Вы успешно вошли в аккаунт!\nТеперь вам будут прихожить уведомления о начале стримов")
 	c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"sync"
 	"time"
 
@@ -12,22 +11,20 @@ import (
 	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
-	"github.com/gin-gonic/gin"
 )
 
 type RedirectService struct {
 	repository *repository.Repository
 	bot        View
+	twitchAPI  *twitch.TwitchAPI
 }
 
-func NewRedirectService(repo *repository.Repository, bot View) *RedirectService {
-	return &RedirectService{repository: repo, bot: bot}
+func NewRedirectService(repo *repository.Repository, bot View, api *twitch.TwitchAPI) *RedirectService {
+	return &RedirectService{repository: repo, bot: bot, twitchAPI: api}
 }
 
-// FIX THIS
-func (service *RedirectService) HandleAuthError(chatID int64, text string, c *gin.Context, err error) {
+func (service *RedirectService) HandleAuthError(chatID int64, text string, err error) {
 	log.Println(err.Error())
-	c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 	if err := service.repository.DeleteChat(chatID); err != nil {
 		log.Printf("HandleAuthRedirect error: %s", err.Error())
 	}
@@ -53,7 +50,7 @@ func (service *RedirectService) GetChatFromRedirect(state string) (*models.Chat,
 }
 
 func (service *RedirectService) SetUserAccessToken(code string, chat *models.Chat) error {
-	userAccessToken, err := twitch.TwitchAPI.GetUserAccessToken(code)
+	userAccessToken, err := service.twitchAPI.GetUserAccessToken(code)
 	if err != nil {
 		return fmt.Errorf("SetUserAccessToken error: %w", err)
 	}
@@ -67,7 +64,7 @@ func (service *RedirectService) SetUserAccessToken(code string, chat *models.Cha
 
 func (service *RedirectService) SetTwitchID(chat *models.Chat) error {
 
-	claims, err := twitch.TwitchAPI.GetAccountClaims(chat.UserAccessToken)
+	claims, err := service.twitchAPI.GetAccountClaims(chat.UserAccessToken)
 	if err != nil {
 		return fmt.Errorf("SetTwitchID error: %w", err)
 	}
@@ -83,7 +80,7 @@ func (service *RedirectService) GetChatUserAccessToken(chat *models.Chat) (twitc
 
 	if isExpired {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		token, err := twitch.TwitchAPI.RefreshUserAccessToken(ctx, token.RefreshToken)
+		token, err := service.twitchAPI.RefreshUserAccessToken(ctx, token.RefreshToken)
 		cancel()
 		if err != nil {
 			return twitchmodels.UserAccessToken{}, fmt.Errorf("subscribeToAllStreamUps err: %w", err)
@@ -104,7 +101,7 @@ func (service *RedirectService) SubscribeToAllStreamUps(chat *models.Chat) (int,
 		return 0, fmt.Errorf("subscribeToAllStreamUps err: %w", err)
 	}
 
-	follows, err := twitch.TwitchAPI.GetAccountFollows(chat.TwitchID, token)
+	follows, err := service.twitchAPI.GetAccountFollows(chat.TwitchID, token)
 	if err != nil {
 		return 0, fmt.Errorf("subscribeToAllStreamUps error: %w", err)
 	}
@@ -145,7 +142,7 @@ func (service *RedirectService) SubscribeToAllStreamUps(chat *models.Chat) (int,
 			goctx, gocancel := context.WithTimeout(ctx, time.Second*10)
 			defer gocancel()
 
-			id, err := twitch.TwitchAPI.SubscribeToTwitchEvent(goctx, follow.ID)
+			id, err := service.twitchAPI.SubscribeToTwitchEvent(goctx, follow.ID)
 
 			if err != nil {
 				mu.Lock()

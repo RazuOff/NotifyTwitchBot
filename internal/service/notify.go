@@ -12,14 +12,15 @@ import (
 type NotifyService struct {
 	repository repository.Follows
 	bot        View
+	twitchAPI  *twitch.TwitchAPI
 }
 
-func NewNotifyService(repo repository.Follows, bot View) *NotifyService {
-	return &NotifyService{repository: repo, bot: bot}
+func NewNotifyService(repo repository.Follows, bot View, api *twitch.TwitchAPI) *NotifyService {
+	return &NotifyService{repository: repo, bot: bot, twitchAPI: api}
 }
 
 func (service *NotifyService) SendNotify(broadcasterUserID string) *apperrors.AppError {
-	streamInfo, err := twitch.TwitchAPI.GetStreamInfo(broadcasterUserID)
+	streamInfo, err := service.twitchAPI.GetStreamInfo(broadcasterUserID)
 	if err != nil {
 		return apperrors.NewAppError("NOT FOUND", "GetStreamInfo error:", err)
 	}
@@ -33,7 +34,7 @@ func (service *NotifyService) SendNotify(broadcasterUserID string) *apperrors.Ap
 
 	for _, chat := range chats {
 		link := fmt.Sprintf("https://www.twitch.tv/%s", streamInfo.BroadcasterLogin)
-		service.bot.SendMessage(chat.ID, fmt.Sprintf("%s START STREAM!!\n\n%s", streamInfo.BroadcasterName, link))
+		service.bot.SendMessage(chat.ID, fmt.Sprintf("%s START STREAM!!\n\n%s\n\n%s", streamInfo.BroadcasterName, streamInfo.Title, link))
 	}
 
 	return nil

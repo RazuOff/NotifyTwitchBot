@@ -40,7 +40,7 @@ func (h *Handler) HandleNotifyWebhook(c *gin.Context) {
 	}
 	log.Println("Received webhook event:", event)
 
-	if err := h.services.Notify.SendNotify(event.BroadcasterUserID); err != nil {
+	if err := h.notifyService.SendNotify(event.BroadcasterUserID); err != nil {
 		switch err.Code {
 		case "NOT FOUND":
 			log.Print(err)

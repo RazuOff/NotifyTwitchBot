@@ -11,7 +11,7 @@ import (
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
-func (api *twitchAPI) GetAccountFollows(twitchID string, userAccessToken twitchmodels.UserAccessToken) ([]twitchmodels.FollowInfo, error) {
+func (api *TwitchAPI) GetAccountFollows(twitchID string, userAccessToken twitchmodels.UserAccessToken) ([]twitchmodels.FollowInfo, error) {
 	apiURL := "https://api.twitch.tv/helix/channels/followed"
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
@@ -49,7 +49,7 @@ func (api *twitchAPI) GetAccountFollows(twitchID string, userAccessToken twitchm
 
 }
 
-func (api *twitchAPI) GetAccountClaims(token twitchmodels.UserAccessToken) (twitchmodels.DeafultAccountClaims, error) {
+func (api *TwitchAPI) GetAccountClaims(token twitchmodels.UserAccessToken) (twitchmodels.DeafultAccountClaims, error) {
 	apiURL := "https://id.twitch.tv/oauth2/userinfo"
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {

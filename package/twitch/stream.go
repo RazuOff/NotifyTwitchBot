@@ -11,7 +11,7 @@ import (
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
-func (api *twitchAPI) GetStreamInfo(id string) (twitchmodels.StreamInfo, error) {
+func (api *TwitchAPI) GetStreamInfo(id string) (twitchmodels.StreamInfo, error) {
 	client := &http.Client{}
 	apiUrl := "https://api.twitch.tv/helix/channels"
 

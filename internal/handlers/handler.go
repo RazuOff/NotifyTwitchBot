@@ -6,11 +6,15 @@ import (
 )
 
 type Handler struct {
-	services *service.Service
+	notifyService   service.Notify
+	redirectService service.Redirect
+	viewService     service.View
+
+	//services *service.Service
 }
 
 func NewHandler(services *service.Service) *Handler {
-	return &Handler{services: services}
+	return &Handler{notifyService: services.Notify, redirectService: services.Redirect, viewService: services.View}
 }
 
 func (h *Handler) InitRoutes() *gin.Engine {

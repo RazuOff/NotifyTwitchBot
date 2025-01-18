@@ -16,11 +16,12 @@ import (
 )
 
 type ChatsPostgre struct {
-	DB *gorm.DB
+	DB        *gorm.DB
+	twitchAPI *twitch.TwitchAPI
 }
 
-func NewChatPostgre(db *gorm.DB) *ChatsPostgre {
-	return &ChatsPostgre{DB: db}
+func NewChatPostgre(db *gorm.DB, api *twitch.TwitchAPI) *ChatsPostgre {
+	return &ChatsPostgre{DB: db, twitchAPI: api}
 }
 
 func (repository *ChatsPostgre) GenerateStateForChat(chatID int64) (string, error) {
@@ -88,7 +89,7 @@ func (repository *ChatsPostgre) DeleteChat(chatID int64) error {
 		go func(f models.Follow) {
 			defer wg.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			if err := twitch.TwitchAPI.DeleteEventSub(ctx, f.Subscribtion_id); err != nil {
+			if err := repository.twitchAPI.DeleteEventSub(ctx, f.Subscribtion_id); err != nil {
 				log.Printf("DeleteChat error: %s", err.Error())
 			} else {
 				mutex.Lock()
