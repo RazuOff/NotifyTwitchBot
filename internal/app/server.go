@@ -2,8 +2,8 @@ package app
 
 import (
 	"log"
-	"os"
 
+	"github.com/RazuOff/NotifyTwitchBot/internal/config"
 	"github.com/RazuOff/NotifyTwitchBot/internal/handlers"
 	"github.com/RazuOff/NotifyTwitchBot/internal/postgre"
 	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
@@ -12,50 +12,16 @@ import (
 )
 
 func StartServer() {
-	host, exists := os.LookupEnv("DBHOST")
-	if !exists {
-		log.Fatal("env par HOST not found")
-	}
-	user, exists := os.LookupEnv("USER")
-	if !exists {
-		log.Fatal("env par HOST not found")
-	}
-	password, exists := os.LookupEnv("PASSWORD")
-	if !exists {
-		log.Fatal("env par HOST not found")
-	}
-	dbname, exists := os.LookupEnv("DBNAME")
-	if !exists {
-		log.Fatal("env par HOST not found")
-	}
-	port, exists := os.LookupEnv("DBPORT")
-	if !exists {
-		log.Fatal("env par HOST not found")
-	}
+	config := config.NewConfig()
 
-	db, err := postgre.NewDB(host, user, password, dbname, port)
+	db, err := postgre.NewDB(config)
 	if err != nil {
-		log.Print(err.Error())
+		log.Fatal(err.Error())
 	}
 
-	clientId, exists := os.LookupEnv("CLIENT_ID")
-	if !exists {
-		log.Fatal("CLIENT_ID env parametr not found!")
-	}
-	appToken, exists := os.LookupEnv("APP_TOKEN")
-	if !exists {
-		log.Fatal("APP_TOKEN env parametr not found!")
-	}
-	server_url, exists := os.LookupEnv("SERVER_URL")
-	if !exists {
-		log.Fatal("SERVER_URL env parametr not found!")
-	}
-
-	twitchAPI := twitch.NewTiwtchAPI(clientId, appToken, server_url)
-	go twitchAPI.UpdateOAuthToken()
-
+	twitchAPI := twitch.NewTiwtchAPI(config)
 	repository := repository.NewRepository(db, twitchAPI)
-	service := service.NewService(repository, twitchAPI)
+	service := service.NewService(repository, twitchAPI, config.TelegramToken)
 	handler := handlers.NewHandler(service)
 	router := handler.InitRoutes()
 

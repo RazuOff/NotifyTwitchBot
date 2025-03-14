@@ -48,12 +48,12 @@ type Service struct {
 	Chat
 }
 
-func NewService(repository *repository.Repository, twitchAPI *twitch.TwitchAPI) *Service {
+func NewService(repository *repository.Repository, twitchAPI *twitch.TwitchAPI, telegramToken string) *Service {
 	service := Service{
 		Chat: NewChatService(twitchAPI, repository),
 	}
 
-	service.View = NewTelegramView(repository, service.Chat, twitchAPI)
+	service.View = NewTelegramView(repository, service.Chat, twitchAPI, telegramToken)
 	service.Redirect = NewRedirectService(repository, service.View, service.Chat, twitchAPI)
 	service.Notify = NewNotifyService(repository, service.View, twitchAPI)
 	service.Debug = NewDebugConsoleService(twitchAPI)

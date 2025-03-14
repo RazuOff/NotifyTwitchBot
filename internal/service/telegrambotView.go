@@ -2,7 +2,6 @@ package service
 
 import (
 	"log"
-	"os"
 
 	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
@@ -21,13 +20,7 @@ type TelegramView struct {
 	twitchAPI   *twitch.TwitchAPI
 }
 
-func NewTelegramView(repo repository.Chats, chatService Chat, api *twitch.TwitchAPI) *TelegramView {
-
-	botToken, exists := os.LookupEnv("TELEGRAM_API_TOKEN")
-	if !exists {
-		log.Fatal("Telegram view token not found in .env file")
-	}
-
+func NewTelegramView(repo repository.Chats, chatService Chat, api *twitch.TwitchAPI, botToken string) *TelegramView {
 	view, err := tgbotapi.NewBotAPI(botToken)
 	if err != nil {
 		log.Panic(err)

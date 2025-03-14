@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RazuOff/NotifyTwitchBot/internal/config"
 	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
@@ -17,11 +18,10 @@ type TwitchAPI struct {
 	mutex     *sync.RWMutex
 }
 
-func NewTiwtchAPI(clientID string, appToken string, serverURL string) *TwitchAPI {
-	twitchAPI := &TwitchAPI{clientId: clientID, appToken: appToken, serverURL: serverURL, mutex: &sync.RWMutex{}}
-
+func NewTiwtchAPI(config *config.Config) *TwitchAPI {
+	twitchAPI := &TwitchAPI{clientId: config.ClientID, appToken: config.AppToken, serverURL: config.ServerURL, mutex: &sync.RWMutex{}}
+	go twitchAPI.UpdateOAuthToken()
 	return twitchAPI
-
 }
 
 func (api *TwitchAPI) UpdateOAuthToken() {

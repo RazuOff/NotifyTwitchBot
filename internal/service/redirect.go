@@ -158,13 +158,12 @@ func (service *RedirectService) subscribeToTwitchEvents(ctx context.Context, can
 	if err != nil {
 		mu.Lock()
 		*subsError += 1
-		apiError = &err
+		*apiError = err
 		mu.Unlock()
 		return
 	}
 
-	follow.Subscribtion_id = id
-	if err := service.repository.UpdateSubID(follow.ID, follow.Subscribtion_id); err != nil {
+	if err := service.repository.UpdateSubID(follow.ID, id); err != nil {
 		{
 			errorContext, cancel := context.WithTimeout(ctx, time.Second*2)
 			defer cancel()
