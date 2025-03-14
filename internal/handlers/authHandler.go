@@ -48,6 +48,8 @@ func (h *Handler) HandleAuthRedirect(c *gin.Context) {
 		return
 	}
 
+	h.viewService.SendMessage(chat.ID, "Немного подождите\nСмотрим на кого вы зафоловлены...")
+
 	errCount, err := h.redirectService.SubscribeToAllStreamUps(chat)
 	if err != nil {
 		if errCount > 0 {

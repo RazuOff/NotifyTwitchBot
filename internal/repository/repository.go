@@ -25,6 +25,7 @@ type Follows interface {
 	GetFollow(id string) (*models.Follow, error)
 	GetUnSubedFollows() ([]models.Follow, error)
 	SaveFollow(follow *models.Follow) error
+	UpdateSubID(followID string, subID string) error
 	AddFollow(chatID int64, follow models.Follow) error
 }
 

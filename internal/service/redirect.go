@@ -12,6 +12,10 @@ import (
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
 )
 
+const (
+	MAX_EVENTGO = 20
+)
+
 type RedirectService struct {
 	repository  *repository.Repository
 	bot         View
@@ -107,6 +111,7 @@ func (service *RedirectService) SubscribeToAllStreamUps(chat *models.Chat) (int,
 	var apiError error
 	var mu sync.Mutex
 	wg := sync.WaitGroup{}
+	sem := make(chan struct{}, MAX_EVENTGO)
 	errChan := make(chan error)
 	defer close(errChan)
 
@@ -115,40 +120,7 @@ func (service *RedirectService) SubscribeToAllStreamUps(chat *models.Chat) (int,
 
 	for _, f := range allFollows {
 		wg.Add(1)
-		go func(follow models.Follow) {
-
-			defer wg.Done()
-
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			goctx, gocancel := context.WithTimeout(ctx, time.Second*10)
-			defer gocancel()
-
-			id, err := service.twitchAPI.SubscribeToTwitchEvent(goctx, follow.ID)
-
-			if err != nil {
-				mu.Lock()
-				subsError++
-				apiError = err
-				mu.Unlock()
-				return
-			}
-
-			follow.Subscribtion_id = id
-			if err := service.repository.SaveFollow(&follow); err != nil {
-				select {
-				case errChan <- fmt.Errorf("subscribeToAllStreamUps error: %w", err):
-					cancel()
-				default:
-				}
-
-			}
-
-		}(f)
+		go service.subscribeToTwitchEvents(ctx, cancel, sem, &wg, &mu, errChan, &subsError, &apiError, f)
 	}
 
 	wg.Wait()
@@ -164,4 +136,51 @@ func (service *RedirectService) SubscribeToAllStreamUps(chat *models.Chat) (int,
 	}
 
 	return 0, nil
+}
+
+func (service *RedirectService) subscribeToTwitchEvents(ctx context.Context, cancel context.CancelFunc, sem chan struct{}, wg *sync.WaitGroup, mu *sync.Mutex, errChan chan<- (error), subsError *int, apiError *error, follow models.Follow) {
+	defer wg.Done()
+
+	sem <- struct{}{}
+	defer func() { <-sem }()
+
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	goctx, gocancel := context.WithTimeout(ctx, time.Second*10)
+	defer gocancel()
+
+	id, err := service.twitchAPI.SubscribeToTwitchEvent(goctx, follow.ID)
+
+	if err != nil {
+		mu.Lock()
+		*subsError += 1
+		apiError = &err
+		mu.Unlock()
+		return
+	}
+
+	follow.Subscribtion_id = id
+	if err := service.repository.UpdateSubID(follow.ID, follow.Subscribtion_id); err != nil {
+		{
+			errorContext, cancel := context.WithTimeout(ctx, time.Second*2)
+			defer cancel()
+			if err := service.twitchAPI.DeleteEventSub(errorContext, id); err != nil {
+				log.Println("Failed to undo event sub, wrote it into network collection...")
+
+				//Записываем в очередь сетевых вызовов которые необходимо выполнить
+
+			}
+		}
+
+		select {
+		case errChan <- fmt.Errorf("subscribeToAllStreamUps error: %w", err):
+			cancel()
+		default:
+		}
+
+	}
 }

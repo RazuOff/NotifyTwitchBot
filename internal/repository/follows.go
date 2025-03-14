@@ -65,6 +65,14 @@ func (repository *FollowsPostgre) SaveFollow(follow *models.Follow) error {
 	return nil
 }
 
+func (repository *FollowsPostgre) UpdateSubID(followID string, subID string) error {
+	if err := repository.DB.Model(&models.Follow{}).Where("id = ?", followID).Update("subscribtion_id", subID).Error; err != nil {
+		log.Print("UpdateSubscribtionId error")
+		return err
+	}
+	return nil
+}
+
 func (repository *FollowsPostgre) AddFollow(chatID int64, follow models.Follow) error {
 
 	if err := repository.DB.FirstOrCreate(&follow).Error; err != nil {
