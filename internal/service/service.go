@@ -5,6 +5,7 @@ import (
 	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
 	"github.com/RazuOff/NotifyTwitchBot/package/apperrors"
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
+	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
 type Redirect interface {
@@ -35,16 +36,25 @@ type Debug interface {
 	deleteSubs(input string) bool
 }
 
+type Chat interface {
+	GetChatUserAccessToken(chat *models.Chat) (*twitchmodels.UserAccessToken, error)
+}
+
 type Service struct {
 	Redirect
 	Notify
 	View
 	Debug
+	Chat
 }
 
 func NewService(repository *repository.Repository, twitchAPI *twitch.TwitchAPI) *Service {
-	service := Service{View: NewTelegramView(repository, twitchAPI)}
-	service.Redirect = NewRedirectService(repository, service.View, twitchAPI)
+	service := Service{
+		Chat: NewChatService(twitchAPI, repository),
+	}
+
+	service.View = NewTelegramView(repository, service.Chat, twitchAPI)
+	service.Redirect = NewRedirectService(repository, service.View, service.Chat, twitchAPI)
 	service.Notify = NewNotifyService(repository, service.View, twitchAPI)
 	service.Debug = NewDebugConsoleService(twitchAPI)
 	return &service

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -123,7 +124,7 @@ func (repository *ChatsPostgre) DeleteUUID(chat *models.Chat) error {
 }
 
 func (repository *ChatsPostgre) SetToken(chat *models.Chat, token twitchmodels.UserAccessToken) error {
-	chat.UserAccessToken = token
+	chat.UserAccessToken = &token
 
 	if err := repository.DB.Save(chat).Error; err != nil {
 		log.Printf("SetToken save error")
@@ -170,7 +171,10 @@ func (repository *ChatsPostgre) GetChatByUUID(uuid string) (*models.Chat, error)
 
 	var chat models.Chat
 
-	if err := repository.DB.Where("uuid = ?", uuid).Find(&chat).Error; err != nil {
+	if err := repository.DB.Where("uuid = ?", uuid).First(&chat).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		log.Printf("GetChatByUUID error")
 		return nil, err
 	}
@@ -181,7 +185,10 @@ func (repository *ChatsPostgre) GetChatByUUID(uuid string) (*models.Chat, error)
 func (repository *ChatsPostgre) GetChatByTwitchID(twitchID string) (*models.Chat, error) {
 	var chat models.Chat
 
-	if err := repository.DB.Where("twitch_id = ?", twitchID).Find(&chat).Error; err != nil {
+	if err := repository.DB.Where("twitch_id = ?", twitchID).First(&chat).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		log.Printf("GetChatByTwitchID error")
 		return nil, err
 	}
@@ -190,10 +197,13 @@ func (repository *ChatsPostgre) GetChatByTwitchID(twitchID string) (*models.Chat
 }
 
 func (repository *ChatsPostgre) GetChat(chatID int64) (*models.Chat, error) {
-
 	var chat models.Chat
 
-	if err := repository.DB.Where("id = ?", chatID).Find(&chat).Error; err != nil {
+	if err := repository.DB.Where("id = ?", chatID).First(&chat).Error; err != nil {
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		log.Printf("GetChat error")
 		return nil, err
 	}

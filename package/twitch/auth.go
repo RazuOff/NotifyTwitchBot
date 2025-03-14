@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -94,6 +95,13 @@ func (api *TwitchAPI) RefreshUserAccessToken(ctx context.Context, refreshToken s
 	if err != nil {
 		log.Print("RefreshUserAccessToken - ReadAll err=" + err.Error())
 		return twitchmodels.UserAccessToken{}, err
+	}
+
+	if resp.StatusCode >= 400 {
+		var errorDesc map[string]string
+		json.Unmarshal(rawData, &errorDesc)
+		log.Print("RefreshUserAccessToken -err=" + string(rawData))
+		return twitchmodels.UserAccessToken{}, fmt.Errorf(errorDesc["message"])
 	}
 
 	var userAccessTokens twitchmodels.UserAccessToken

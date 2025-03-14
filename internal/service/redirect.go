@@ -10,17 +10,17 @@ import (
 	"github.com/RazuOff/NotifyTwitchBot/internal/models"
 	"github.com/RazuOff/NotifyTwitchBot/internal/repository"
 	"github.com/RazuOff/NotifyTwitchBot/package/twitch"
-	twitchmodels "github.com/RazuOff/NotifyTwitchBot/package/twitch/models"
 )
 
 type RedirectService struct {
-	repository *repository.Repository
-	bot        View
-	twitchAPI  *twitch.TwitchAPI
+	repository  *repository.Repository
+	bot         View
+	chatService Chat
+	twitchAPI   *twitch.TwitchAPI
 }
 
-func NewRedirectService(repo *repository.Repository, bot View, api *twitch.TwitchAPI) *RedirectService {
-	return &RedirectService{repository: repo, bot: bot, twitchAPI: api}
+func NewRedirectService(repo *repository.Repository, bot View, chatService Chat, api *twitch.TwitchAPI) *RedirectService {
+	return &RedirectService{repository: repo, bot: bot, chatService: chatService, twitchAPI: api}
 }
 
 func (service *RedirectService) HandleAuthError(chatID int64, text string, err error) {
@@ -64,7 +64,12 @@ func (service *RedirectService) SetUserAccessToken(code string, chat *models.Cha
 
 func (service *RedirectService) SetTwitchID(chat *models.Chat) error {
 
-	claims, err := service.twitchAPI.GetAccountClaims(chat.UserAccessToken)
+	token, err := service.chatService.GetChatUserAccessToken(chat)
+	if err != nil {
+		return fmt.Errorf("SetTwitchID err: %w", err)
+	}
+
+	claims, err := service.twitchAPI.GetAccountClaims(token)
 	if err != nil {
 		return fmt.Errorf("SetTwitchID error: %w", err)
 	}
@@ -75,28 +80,9 @@ func (service *RedirectService) SetTwitchID(chat *models.Chat) error {
 	return nil
 }
 
-func (service *RedirectService) GetChatUserAccessToken(chat *models.Chat) (twitchmodels.UserAccessToken, error) {
-	token, isExpired := chat.GetUserAccessToken()
-
-	if isExpired {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		token, err := service.twitchAPI.RefreshUserAccessToken(ctx, token.RefreshToken)
-		cancel()
-		if err != nil {
-			return twitchmodels.UserAccessToken{}, fmt.Errorf("subscribeToAllStreamUps err: %w", err)
-		}
-
-		if err := service.repository.SetToken(chat, token); err != nil {
-			return twitchmodels.UserAccessToken{}, fmt.Errorf("subscribeToAllStreamUps err: %w", err)
-		}
-	}
-
-	return token, nil
-}
-
 func (service *RedirectService) SubscribeToAllStreamUps(chat *models.Chat) (int, error) {
 
-	token, err := service.GetChatUserAccessToken(chat)
+	token, err := service.chatService.GetChatUserAccessToken(chat)
 	if err != nil {
 		return 0, fmt.Errorf("subscribeToAllStreamUps err: %w", err)
 	}

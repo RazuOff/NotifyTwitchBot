@@ -9,8 +9,6 @@ type Handler struct {
 	notifyService   service.Notify
 	redirectService service.Redirect
 	viewService     service.View
-
-	//services *service.Service
 }
 
 func NewHandler(services *service.Service) *Handler {

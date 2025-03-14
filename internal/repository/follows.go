@@ -19,8 +19,12 @@ func (repository *FollowsPostgre) GetChatsByFollow(followID string) ([]models.Ch
 
 	var chats []models.Chat
 
-	if err := repository.DB.Preload("Follows", "id = ?", followID).Find(&chats).Error; err != nil {
-		log.Printf("GetChatsByFollow error")
+	if err := repository.DB.
+		Joins("JOIN chat_follows ON chat_follows.chat_id = chats.id").
+		Where("chat_follows.follow_id = ?", followID).
+		Preload("Follows").
+		Find(&chats).Error; err != nil {
+		log.Printf("GetChatsByFollow error: %v", err)
 		return nil, err
 	}
 

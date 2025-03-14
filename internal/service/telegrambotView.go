@@ -15,12 +15,13 @@ const FOLLOW_COMMAND = "follows"
 const EXIT_COMMAND = "exit"
 
 type TelegramView struct {
-	repository repository.Chats
-	api        *tgbotapi.BotAPI
-	twitchAPI  *twitch.TwitchAPI
+	repository  repository.Chats
+	chatService Chat
+	api         *tgbotapi.BotAPI
+	twitchAPI   *twitch.TwitchAPI
 }
 
-func NewTelegramView(repo repository.Chats, api *twitch.TwitchAPI) *TelegramView {
+func NewTelegramView(repo repository.Chats, chatService Chat, api *twitch.TwitchAPI) *TelegramView {
 
 	botToken, exists := os.LookupEnv("TELEGRAM_API_TOKEN")
 	if !exists {
@@ -32,7 +33,7 @@ func NewTelegramView(repo repository.Chats, api *twitch.TwitchAPI) *TelegramView
 		log.Panic(err)
 	}
 
-	return &TelegramView{repository: repo, api: view, twitchAPI: api}
+	return &TelegramView{repository: repo, chatService: chatService, api: view, twitchAPI: api}
 }
 
 func (view *TelegramView) StartHandlingMessages() {
@@ -57,6 +58,7 @@ func (view *TelegramView) StartHandlingMessages() {
 	view.handleUpdates(updates)
 }
 
+// ДОбавить очередь для каждого чата (не одновременная обработка сообщений из одного чата)
 func (view *TelegramView) handleUpdates(updates tgbotapi.UpdatesChannel) {
 	go func() {
 		for update := range updates {
@@ -73,6 +75,7 @@ func (view *TelegramView) handleUpdates(updates tgbotapi.UpdatesChannel) {
 }
 
 func (view *TelegramView) handleCommands(message *tgbotapi.Message) {
+
 	switch message.Command() {
 	case START_COMMAND:
 		view.handleStartCommand(message.Chat.ID)
@@ -101,7 +104,7 @@ func (view *TelegramView) handleLoginCommand(chatID int64) {
 		return
 	}
 
-	if chat != nil && chat.TwitchID != "" && chat.UserAccessToken.AccessToken != "" {
+	if chat != nil && chat.UserAccessToken != nil {
 		view.SendMessage(chatID, "Вы уже вошли в аккаунт")
 		return
 	}
@@ -131,11 +134,19 @@ func (view *TelegramView) handleFollowsCommand(chatID int64) {
 		return
 	}
 
-	if chat == nil {
+	if chat == nil || chat.UserAccessToken == nil {
 		view.SendMessage(chatID, "Для начала войди в аккаунт")
 		return
 	}
-	follows, err := view.twitchAPI.GetAccountFollows(chat.TwitchID, chat.UserAccessToken)
+
+	token, err := view.chatService.GetChatUserAccessToken(chat)
+	if err != nil {
+		view.SendMessage(chatID, "Что-то пошло не так, попробуй позже(")
+		log.Println("GetChatUserAccessToken error=" + err.Error())
+		return
+	}
+
+	follows, err := view.twitchAPI.GetAccountFollows(chat.TwitchID, token)
 	if err != nil {
 		view.SendMessage(chatID, "Что-то пошло не так, попробуй позже(")
 		log.Println("GetAccountFollows error=" + err.Error())
@@ -155,10 +166,11 @@ func (view *TelegramView) handleExitCommand(chatID int64) {
 		return
 	}
 
-	if chat.ID == 0 {
+	if chat == nil {
 		view.SendMessage(chatID, "Для начала войди в аккаунт")
 		return
 	}
+	// Неправильно отрабаьывает ошибка
 	if err := view.repository.DeleteChat(chat.ID); err != nil {
 		log.Printf("handleExitCommand error")
 		view.SendMessage(chatID, "У нас сломалась БД(")
