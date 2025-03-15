@@ -29,11 +29,20 @@ type Follows interface {
 	AddFollow(chatID int64, follow models.Follow) error
 }
 
+type Streamers interface {
+	GetStreamerByID(broadcasterID string) (*models.StreamerAccount, error)
+}
+
 type Repository struct {
 	Chats
 	Follows
+	Streamers
 }
 
 func NewRepository(db *gorm.DB, twitchAPI *twitch.TwitchAPI) *Repository {
-	return &Repository{Chats: NewChatPostgre(db, twitchAPI), Follows: NewFollowsPostgre(db)}
+	return &Repository{
+		Chats:     NewChatPostgre(db, twitchAPI),
+		Follows:   NewFollowsPostgre(db),
+		Streamers: NewStreamersGORMRepository(db),
+	}
 }

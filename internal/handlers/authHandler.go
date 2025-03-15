@@ -36,13 +36,13 @@ func (h *Handler) HandleAuthRedirect(c *gin.Context) {
 	}
 
 	code := c.Query("code")
-	if err := h.redirectService.SetUserAccessToken(code, chat); err != nil {
+	if err := h.chatService.SetUserAccessToken(code, chat); err != nil {
 		h.redirectService.HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", err)
 		c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 		return
 	}
 
-	if err := h.redirectService.SetTwitchID(chat); err != nil {
+	if err := h.chatService.SetTwitchID(chat); err != nil {
 		h.redirectService.HandleAuthError(chat.ID, "Что-то пошло не так(\nПопробуйте ещё раз позже", err)
 		c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 		return
@@ -50,7 +50,7 @@ func (h *Handler) HandleAuthRedirect(c *gin.Context) {
 
 	h.viewService.SendMessage(chat.ID, "Немного подождите\nСмотрим на кого вы зафоловлены...")
 
-	errCount, err := h.redirectService.SubscribeToAllStreamUps(chat)
+	errCount, notPayedStreamers, err := h.subscriptionService.SubscribeToAllStreamUps(chat)
 	if err != nil {
 		if errCount > 0 {
 			h.viewService.SendMessage(chat.ID, fmt.Sprintf("%d фоллоу не получилось подписать на оповещения(", errCount))
@@ -63,5 +63,10 @@ func (h *Handler) HandleAuthRedirect(c *gin.Context) {
 	}
 
 	h.viewService.SendMessage(chat.ID, "Вы успешно вошли в аккаунт!\nТеперь вам будут прихожить уведомления о начале стримов")
+
+	if h.isPayedMode {
+		h.viewService.SendMessage(chat.ID, fmt.Sprintf("Не удалось добавить %d стримеров\nОни решили не использовать наш сервис(", notPayedStreamers))
+	}
+
 	c.Redirect(http.StatusPermanentRedirect, "https://t.me/StreamUpNotifyTwitchBot")
 }

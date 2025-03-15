@@ -34,3 +34,9 @@ type Follow struct {
 	Subscribtion_id string `json:"subscribtion_id"`
 	Chats           []Chat `gorm:"many2many:chat_follows;constraint:OnDelete:CASCADE;"`
 }
+
+type StreamerAccount struct {
+	ID              string    `gorm:"unique;not null" json:"id"`
+	SubedAt         time.Time `json:"subed_at"`
+	SubDaysDuration int       `json:"sub_dayDuration"`
+}

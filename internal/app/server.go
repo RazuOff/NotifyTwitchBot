@@ -21,8 +21,8 @@ func StartServer() {
 
 	twitchAPI := twitch.NewTiwtchAPI(config)
 	repository := repository.NewRepository(db, twitchAPI)
-	service := service.NewService(repository, twitchAPI, config.TelegramToken)
-	handler := handlers.NewHandler(service)
+	service := service.NewService(repository, twitchAPI, config)
+	handler := handlers.NewHandler(service, config.PayModeOn)
 	router := handler.InitRoutes()
 
 	service.StartHandlingMessages()

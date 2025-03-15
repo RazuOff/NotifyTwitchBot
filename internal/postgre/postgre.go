@@ -16,7 +16,7 @@ func NewDB(config *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("database connect error: %w", err)
 	}
 
-	if err := db.AutoMigrate(&models.Chat{}, &models.Follow{}); err != nil {
+	if err := db.AutoMigrate(&models.Chat{}, &models.Follow{}, &models.StreamerAccount{}); err != nil {
 		return nil, fmt.Errorf("database connect error: %w", err)
 	}
 

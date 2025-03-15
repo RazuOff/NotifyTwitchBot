@@ -31,17 +31,49 @@ func (service *ChatService) GetChatUserAccessToken(chat *models.Chat) (*twitchmo
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 
-		token, err := service.twitchAPI.RefreshUserAccessToken(ctx, token.RefreshToken)
+		newToken, err := service.twitchAPI.RefreshUserAccessToken(ctx, token.RefreshToken)
 		if err != nil {
 			return nil, fmt.Errorf("RefreshUserAccessToken err: %w", err)
 		}
 
-		if err := service.repository.SetToken(chat, token); err != nil {
+		if err := service.repository.SetToken(chat, newToken); err != nil {
 			return nil, fmt.Errorf("SetToken err: %w", err)
 		}
+		chat.UserAccessToken = &newToken
 
-		time.Sleep(time.Second * 1)
+		return &newToken, nil
 	}
 
 	return token, nil
+}
+
+func (service *ChatService) SetUserAccessToken(code string, chat *models.Chat) error {
+	userAccessToken, err := service.twitchAPI.GetUserAccessToken(code)
+	if err != nil {
+		return fmt.Errorf("SetUserAccessToken error: %w", err)
+	}
+
+	if err := service.repository.SetToken(chat, userAccessToken); err != nil {
+		return fmt.Errorf("SetUserAccessToken error: %w", err)
+	}
+
+	return nil
+}
+
+func (service *ChatService) SetTwitchID(chat *models.Chat) error {
+
+	token, err := service.GetChatUserAccessToken(chat)
+	if err != nil {
+		return fmt.Errorf("SetTwitchID err: %w", err)
+	}
+
+	claims, err := service.twitchAPI.GetAccountClaims(token)
+	if err != nil {
+		return fmt.Errorf("SetTwitchID error: %w", err)
+	}
+
+	if err = service.repository.SetTwitchID(chat, claims.Sub); err != nil {
+		return fmt.Errorf("SetTwitchID error: %w", err)
+	}
+	return nil
 }
