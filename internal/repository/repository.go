@@ -31,6 +31,8 @@ type Follows interface {
 
 type Streamers interface {
 	GetStreamerByID(broadcasterID string) (*models.StreamerAccount, error)
+	UpdateStreamer(streamer *models.StreamerAccount) error
+	CreateStreamer(streamer *models.StreamerAccount) error
 }
 
 type Repository struct {

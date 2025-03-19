@@ -36,7 +36,7 @@ type Follow struct {
 }
 
 type StreamerAccount struct {
-	ID              string    `gorm:"unique;not null" json:"id"`
-	SubedAt         time.Time `json:"subed_at"`
-	SubDaysDuration int       `json:"sub_dayDuration"`
+	ID              string     `gorm:"unique;not null" json:"id"`
+	SubedAt         *time.Time `json:"subed_at"`
+	SubDaysDuration *int       `json:"sub_dayDuration"`
 }

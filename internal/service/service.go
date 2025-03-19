@@ -13,18 +13,25 @@ import (
 )
 
 type Subscription interface {
-	SubscribeToAllStreamUps(chat *models.Chat) (errCount int, notPayedStreamers int, err error)
+	SubscribeToAllStreamUps(chat *models.Chat) (notPayedStreamers int, errCount int, err error)
+	SubscribeStreamUPEvent(ctx context.Context, broadcasterID string) error
+	UnsubscribeStreamUPEvent(ctx context.Context, broadcasterID string) error
 	subscribeToTwitchEvents(ctx context.Context, cancel context.CancelFunc, sem chan struct{}, wg *sync.WaitGroup, mu *sync.Mutex, errChan chan<- (error), subsError *int, apiError *error, follow models.Follow)
+}
+
+type StreamerSubscription interface {
+	BuyStreamerSub(streamer models.StreamerAccount) error
+	UnsubNotPayedStreamer(broadcasterID string) (done bool, err error)
+}
+
+type Validate interface {
+	IsSubscriptionActive(streamerID string) (bool, error)
 }
 
 type Chat interface {
 	GetChatUserAccessToken(chat *models.Chat) (*twitchmodels.UserAccessToken, error)
 	SetUserAccessToken(code string, chat *models.Chat) error
 	SetTwitchID(chat *models.Chat) error
-}
-
-type ValidateStreamer interface {
-	IsSubscriptionActive(streamerID string) (bool, error)
 }
 
 type Debug interface {
@@ -56,7 +63,8 @@ type View interface {
 type Service struct {
 	Subscription
 	Chat
-	ValidateStreamer
+	StreamerSubscription
+	Validate
 	Debug
 
 	Redirect
@@ -68,9 +76,10 @@ func NewService(repository *repository.Repository, twitchAPI *twitch.TwitchAPI, 
 	service := Service{
 		Chat: NewChatService(twitchAPI, repository),
 	}
-	service.ValidateStreamer = NewValidateService(repository.Streamers)
+	service.Validate = NewValidateService(repository.Streamers)
 
-	service.Subscription = NewSubscrpitionService(repository, twitchAPI, service.Chat, service.ValidateStreamer, config)
+	service.Subscription = NewSubscrpitionService(repository, twitchAPI, service.Chat, service.Validate, config)
+	service.StreamerSubscription = NewStreamerSubscriptionService(repository.Streamers, service.Subscription, service.Validate)
 	service.View = NewTelegramView(repository, service.Chat, twitchAPI, config.TelegramToken)
 	service.Redirect = NewRedirectService(repository, service.View, service.Chat)
 	service.Notify = NewNotifyService(repository, service.View, twitchAPI)

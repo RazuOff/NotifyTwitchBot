@@ -40,7 +40,19 @@ func (h *Handler) HandleNotifyWebhook(c *gin.Context) {
 	}
 	log.Println("Received webhook event:", event)
 
-	if err := h.notifyService.SendNotify(event.BroadcasterUserID); err != nil {
+	if h.isPayedMode {
+		cantNotify, err := h.service.UnsubNotPayedStreamer(event.BroadcasterUserID)
+		if err != nil {
+			log.Print(err)
+		}
+
+		if cantNotify {
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+			return
+		}
+	}
+
+	if err := h.service.SendNotify(event.BroadcasterUserID); err != nil {
 		switch err.Code {
 		case "NOT FOUND":
 			log.Print(err)

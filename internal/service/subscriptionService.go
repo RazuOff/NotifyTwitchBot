@@ -22,10 +22,10 @@ type SubscriptionService struct {
 	config            *config.Config
 	twitchAPI         *twitch.TwitchAPI
 	chatService       Chat
-	validationService ValidateStreamer
+	validationService Validate
 }
 
-func NewSubscrpitionService(repo *repository.Repository, api *twitch.TwitchAPI, chat Chat, validationService ValidateStreamer, conf *config.Config) *SubscriptionService {
+func NewSubscrpitionService(repo *repository.Repository, api *twitch.TwitchAPI, chat Chat, validationService Validate, conf *config.Config) *SubscriptionService {
 
 	return &SubscriptionService{repository: repo, twitchAPI: api, chatService: chat, validationService: validationService, config: conf}
 
@@ -47,6 +47,11 @@ func (service *SubscriptionService) SubscribeToAllStreamUps(chat *models.Chat) (
 		if err := service.repository.AddFollow(chat.ID, models.Follow{ID: f.BroadcasterID, BroadcasterName: f.BroadcasterName}); err != nil {
 			return 0, 0, fmt.Errorf("subscribeToAllStreamUps error: %w", err)
 		}
+
+		if err := service.repository.CreateStreamer(&models.StreamerAccount{ID: f.BroadcasterID}); err != nil {
+			return 0, 0, fmt.Errorf("subscribeToAllStreamUps error: %w", err)
+		}
+
 	}
 
 	allFollows, err := service.repository.GetUnSubedFollows()
@@ -72,11 +77,13 @@ func (service *SubscriptionService) SubscribeToAllStreamUps(chat *models.Chat) (
 		if service.config.PayModeOn {
 			payed, err := service.validationService.IsSubscriptionActive(f.ID)
 			if err != nil {
+				wg.Done()
 				return 0, 0, fmt.Errorf("subscribeToAllStreamUps error: %w", err)
 			}
 
 			if !payed {
 				notPayedStreamers++
+				wg.Done()
 				continue
 			}
 
@@ -96,10 +103,10 @@ func (service *SubscriptionService) SubscribeToAllStreamUps(chat *models.Chat) (
 	}
 
 	if subsError != 0 {
-		return subsError, 0, fmt.Errorf("%d: subscriptions are not completed\nlast error: %w", subsError, apiError)
+		return 0, subsError, fmt.Errorf("%d: subscriptions are not completed\nlast error: %w", subsError, apiError)
 	}
 
-	return 0, notPayedStreamers, nil
+	return notPayedStreamers, 0, nil
 }
 
 func (service *SubscriptionService) subscribeToTwitchEvents(ctx context.Context, cancel context.CancelFunc, sem chan struct{}, wg *sync.WaitGroup, mu *sync.Mutex, errChan chan<- (error), subsError *int, apiError *error, follow models.Follow) {
@@ -146,4 +153,49 @@ func (service *SubscriptionService) subscribeToTwitchEvents(ctx context.Context,
 		}
 
 	}
+}
+
+func (service *SubscriptionService) SubscribeStreamUPEvent(ctx context.Context, broadcasterID string) error {
+	id, err := service.twitchAPI.SubscribeToTwitchEvent(ctx, broadcasterID)
+
+	if err != nil {
+		return err
+	}
+
+	if err := service.repository.UpdateSubID(broadcasterID, id); err != nil {
+		errorContext, cancel := context.WithTimeout(ctx, time.Second*2)
+		defer cancel()
+		if err := service.twitchAPI.DeleteEventSub(errorContext, id); err != nil {
+			log.Println("(TODO!!)Failed to undo event sub, wrote it into network collection...")
+
+			//Записываем в очередь сетевых вызовов которые необходимо выполнить
+
+			return err
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (service *SubscriptionService) UnsubscribeStreamUPEvent(ctx context.Context, broadcasterID string) error {
+
+	follow, err := service.repository.GetFollow(broadcasterID)
+	if err != nil {
+		return err
+	}
+
+	if err := service.repository.UpdateSubID(broadcasterID, ""); err != nil {
+		return err
+	}
+
+	if err := service.twitchAPI.DeleteEventSub(ctx, follow.Subscribtion_id); err != nil {
+
+		//Опять в очередь вызовов
+
+		return err
+	}
+
+	return nil
 }

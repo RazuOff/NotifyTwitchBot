@@ -89,6 +89,14 @@ func (repository *ChatsPostgre) DeleteChat(chatID int64) error {
 		wg.Add(1)
 		go func(f models.Follow) {
 			defer wg.Done()
+
+			if follow.Subscribtion_id == "" {
+				mutex.Lock()
+				followsToDelete = append(followsToDelete, f)
+				mutex.Unlock()
+				return
+			}
+
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			if err := repository.twitchAPI.DeleteEventSub(ctx, f.Subscribtion_id); err != nil {
 				log.Printf("DeleteChat error: %s", err.Error())

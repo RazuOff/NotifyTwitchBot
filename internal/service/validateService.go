@@ -25,7 +25,11 @@ func (service *ValidateService) IsSubscriptionActive(streamerID string) (bool, e
 		return false, nil
 	}
 
-	expirationTime := streamer.SubedAt.Add(time.Duration(streamer.SubDaysDuration) * 24 * time.Hour)
+	if streamer.SubDaysDuration == nil {
+		return false, nil
+	}
+
+	expirationTime := streamer.SubedAt.Add(time.Duration(*streamer.SubDaysDuration) * 24 * time.Hour)
 	return time.Now().Before(expirationTime), nil
 
 }
