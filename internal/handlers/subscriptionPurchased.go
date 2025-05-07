@@ -1,23 +1,28 @@
 package handlers
 
 import (
-	"context"
+	"log"
 	"net/http"
-	"time"
 
-	"github.com/RazuOff/NotifyTwitchBot/internal/models"
 	"github.com/gin-gonic/gin"
 )
 
 func (h *Handler) HandleSubscriptionPurchased(c *gin.Context) {
-	var streamer models.StreamerAccount
 
-	c.BindJSON(streamer)
+	type body struct {
+		ID              string `gorm:"unique;not null" json:"id"`
+		SubDaysDuration *int   `json:"sub_dayDuration"`
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
+	var streamer body
 
-	if err := h.service.SubscribeStreamUPEvent(ctx, streamer.ID); err != nil {
+	if err := c.BindJSON(&streamer); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
+		return
+	}
+
+	if err := h.service.BuyStreamerSub(streamer.ID, streamer.SubDaysDuration); err != nil {
+		log.Printf("HandleSubscriptionPurchased error: %s", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}

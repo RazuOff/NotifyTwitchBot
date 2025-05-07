@@ -20,8 +20,9 @@ type Subscription interface {
 }
 
 type StreamerSubscription interface {
-	BuyStreamerSub(streamer models.StreamerAccount) error
+	BuyStreamerSub(id string, days *int) error
 	UnsubNotPayedStreamer(broadcasterID string) (done bool, err error)
+	GetStreamerInfo(broadcasterID string) (*models.StreamerAccount, error)
 }
 
 type Validate interface {
@@ -79,7 +80,7 @@ func NewService(repository *repository.Repository, twitchAPI *twitch.TwitchAPI, 
 	service.Validate = NewValidateService(repository.Streamers)
 
 	service.Subscription = NewSubscrpitionService(repository, twitchAPI, service.Chat, service.Validate, config)
-	service.StreamerSubscription = NewStreamerSubscriptionService(repository.Streamers, service.Subscription, service.Validate)
+	service.StreamerSubscription = NewStreamerSubscriptionService(repository, service.Subscription, service.Validate)
 	service.View = NewTelegramView(repository, service.Chat, twitchAPI, config.TelegramToken)
 	service.Redirect = NewRedirectService(repository, service.View, service.Chat)
 	service.Notify = NewNotifyService(repository, service.View, twitchAPI)

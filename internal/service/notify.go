@@ -39,3 +39,5 @@ func (service *NotifyService) SendNotify(broadcasterUserID string) *apperrors.Ap
 
 	return nil
 }
+
+

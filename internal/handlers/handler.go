@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/RazuOff/NotifyTwitchBot/internal/service"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,9 +20,18 @@ func NewHandler(services *service.Service, isPayMode bool) *Handler {
 
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.Default()
+
+	corsMiddleware := cors.New(cors.Config{
+		AllowOrigins: []string{"*"}, // или "*"
+		AllowMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowHeaders: []string{"Content-Type"},
+	})
+
 	router.POST("/notify", h.HandleNotifyWebhook)
 	router.GET("/auth", h.HandleAuthRedirect)
-	router.POST("/subscription-purchased", h.HandleSubscriptionPurchased)
+
+	router.POST("/subscription-purchased", corsMiddleware, h.HandleSubscriptionPurchased)
+	router.GET("/streamer-info/:id", corsMiddleware, h.GetStreamerInfo)
 
 	return router
 }

@@ -35,9 +35,14 @@ func (repository *FollowsPostgre) GetFollow(id string) (*models.Follow, error) {
 
 	var follow models.Follow
 
-	if err := repository.DB.Where("id = ?", id).Find(&follow).Error; err != nil {
-		log.Printf("GetFollow error")
-		return nil, err
+	result := repository.DB.Where("id = ?", id).Find(&follow)
+	if result.Error != nil {
+		log.Printf("GetFollow error: %v", result.Error)
+		return nil, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return nil, nil
 	}
 
 	return &follow, nil
